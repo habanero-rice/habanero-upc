@@ -1,0 +1,23 @@
+EXE=debug
+
+BASE=$(hcpp)
+HCPP_CXXFLAGS=-I$(BASE)/include -I$(HCLIB_ROOT)/include -I$(PHASERLIB_ROOT)/include
+HCPP_LDFLAGS=-L$(HCLIB_ROOT)/lib -L$(OCR_INSTALL)/lib -L$(PHASERLIB_ROOT)/lib
+HCPP_LDLIBS=-lhclib -locr -lphasertask
+
+SRC=$(BASE)/src
+HCPP_OBJS=$(SRC)/asyncAwait.o  $(SRC)/asyncPhased.o  $(SRC)/hcpp-runtime.o
+
+all: clean $(EXE) clean-obj
+
+debug: debug.o 
+	CC $(HCPP_LDFLAGS) -o $@ $^ $(HCPP_OBJS) $(HCPP_LDLIBS)
+
+debug.o: debug.cpp
+	CC $(HCPP_CXXFLAGS) -o $@ -c $<
+
+clean-obj:
+	rm -f *.o
+
+clean:
+	rm -rf *.o $(EXE) *.dSYM

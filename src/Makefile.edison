@@ -1,0 +1,26 @@
+CC=CC
+OBJ=hcpp-runtime.o asyncAwait.o asyncPhased.o hcupc_spmd.o
+####################################################
+
+LIBS=-lhclib -lm
+LIB_PATHS=-L$(HCLIB_ROOT)/lib -L$(PHASERLIB_ROOT)/lib -L$(UPCPP_INSTALL)/lib
+INC_PATHS=-I$(HCLIB_ROOT)/include -I$(PHASERLIB_ROOT)/include -I$(UPCPP_INSTALL)/include -I../include -I.
+
+include $(UPCPP_INSTALL)/include/upcxx.mak
+
+all: clean $(OBJ)
+
+hcpp-runtime.o:
+	$(CC) -std=c++11 -fPIC $(INC_PATHS) -c hcpp-runtime.cpp
+
+asyncAwait.o:
+	$(CC) -std=c++11 -fPIC $(INC_PATHS) -c asyncAwait.cpp
+
+asyncPhased.o:
+	$(CC) -std=c++11 -fPIC $(INC_PATHS) -c asyncPhased.cpp
+
+hcupc_spmd.o: hcupc_spmd.cpp
+	$(CC) $(INC_PATHS) $(UPCXX_CXXFLAGS) -o $@ -c $<
+
+clean:
+	rm -f *.o ../lib/libhcpp.a
