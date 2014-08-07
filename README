@@ -3,6 +3,7 @@ HABANERO-UPC LIBRARY INSTALLATION PROCEDURE
 =============================================
 
 1) Set the paths correctly in ./scripts/setMeFirst.sh (bash) or ./scripts/setMeFirst.csh (cshell)
+	NOTE: UPC++ installation guide: https://bitbucket.org/upcxx/upcxx/wiki/Installing%20UPC++
 
 2) cd scripts
 
