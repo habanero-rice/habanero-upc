@@ -185,6 +185,19 @@ typedef struct _loop_domain_t {
 void forasync(void* forasync_fct, void * argv, struct ddf_st ** ddf_list, struct _phased_t * phased_clause, 
             struct _accumed_t * accumed, int dim, loop_domain_t * domain, forasync_mode_t mode);
 
+typedef struct forasync_hcupc_t {
+  void* forasync_fct;
+  void * argv;
+  struct ddf_st ** ddf_list;
+  struct _phased_t * phased_clause;
+  struct _accumed_t * accumed;
+  int dim;
+  loop_domain_t * domain; // should always be heap-allocated
+  forasync_mode_t mode;
+}forasync_hcupc_t;
+
+void forasync_hcupc(forasync_hcupc_t* fasync);
+
 /**
  * @brief starts a new finish scope
  */

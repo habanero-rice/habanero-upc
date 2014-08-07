@@ -49,7 +49,15 @@ namespace hcpp
     loop->stride = 1;
     loop->tile =  (int)highBound/numWorkers();
     std::function<void(int)> * copy_of_lambda = new std::function<void(int)> (lambda);
-    ::forasync((void*)&forasync_cpp_wrapper, (void *)copy_of_lambda, NULL, NULL, NULL, 1, loop, FORASYNC_MODE_FLAT);
+    forasync_hcupc_t fasync = {(void*)&forasync_cpp_wrapper, (void *)copy_of_lambda, NULL, NULL, NULL, 1, loop, FORASYNC_MODE_FLAT};
+    forasync_hcupc(&fasync);
+   
+    // BUG: Currently hclib internally wraps forasync inside
+    // a finish scope. Its not required. When this is rectified
+    // then the delete operations should be done at the end finish scope
+    // and not here as async may be in flight
+    delete loop;
+    delete copy_of_lambda;
   }
 
   DDF_t** DDF_LIST(int total_ddfs) {

@@ -391,3 +391,9 @@ void forasync(void* forasync_fct, void * argv, struct ddf_st ** ddf_list, struct
             struct _accumed_t * accumed, int dim, loop_domain_t * domain, forasync_mode_t mode) {
     forasync_internal(forasync_fct, argv, accumed, dim, domain, mode);
 }
+
+void forasync_hcupc(forasync_hcupc_t* fasync) {
+  forasync(fasync->forasync_fct, fasync->argv, fasync->ddf_list, fasync->phased_clause, fasync->accumed, fasync->dim, fasync->domain, fasync->mode);
+}
+
+
