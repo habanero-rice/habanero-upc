@@ -283,58 +283,6 @@ void hcpp_finish_barrier(finish_spmd_t* f) {
 	}
 }
 
-/**************************************************************/
-/************* FUNCTIONS ACCESSIBLE IN USER CODE **************/
-/**************************************************************/
-
-/*
- * Issues in the order finish_hclib / finish_spmd is called:
- * 	1) finish_spmd inside finish_hclib ::
- *		finish_hclib {
- *			finish_spmd {
- *				if(rank_0) async_at(rank_1, S1);
- *			}
- *		}
- *
- *		If there is just one hclib_finish, the above code will hang. COMM_HC at rank_0 push the async_at in
- *		its outgoing deque and even before poping/executing loops inside hcpp_finish_barrier() at the end of finish_spmd.
- *		hclib::end_finish can only force COMM_HC to pop all the tasks from it deque and execute. In the above
- *		case, clearly this will never happen.
- *
- * 	2) finish_hclib inside finish_spmd ::
- * 		finish_spmd {
- * 			finish_hclib {
- *				if(rank_0) {
- *					async_at(1,[=]() {
- *						async S1;
- *					}
- *				}
- * 			}
- * 		}
- *
- *		rank_0 has posted the AM but its not received yet at rank_1. As there is no async yet for rank_1, it
- *		will simply come out of finish_hclib. The async at rank_1, when scheduler, will not have any parent
- *		finish scope and hence will be lost.
- *
- *	3) Solution: a) Subdivide hclib finish into finish_async and finish_async_comm.
- *
- *		So we subdivide the hclib_finish into two sub_finishes and call as below:
- *
- *		finish_async_hclib {
- *			finish_spmd {
- *				finish_async_comm_hclib {
- *					if(rank_0) async_at(rank_1, S1);
- *				}
- *			}
- *		}
- *
- *		Here any hclib::async is registered ONLY on finish_async_hclib and any hclib's COMM_HC registers
- *		ONLY on finish_async_comm_hclib. With this, the COMM_HC at rank_0 is able to pop it's
- *		deque (end_finish_async_comm_hclib call just before calling hcpp_finish_barrier). Once it's
- *		not having any more tasks in its ocr's outgoing deque, it will branch into hcpp_finish_barrier().
- *
- */
-
 void finish_spmd(std::function<void()> lambda) {
 	::start_finish();
 	finish_spmd_t* f = allocate_finish_spmd();

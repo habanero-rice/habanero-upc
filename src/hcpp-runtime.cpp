@@ -41,34 +41,15 @@ namespace hcpp
     return ::get_worker_count();
   }
 
-  void dcFor(int for_init, int for_max, int slice, int procs, std::function<void(int)> lambda) {
-    if(slice >> 2 < procs) {
-      int var0 = (for_init + for_max) >> 1;
-      int var1 = slice << 1;
-      hcpp::async([=](){dcFor(for_init, var0, var1, procs, lambda);});
-      hcpp::async([=](){dcFor(var0, for_max, var1, procs, lambda);});
-    }
-    else {
-      for(int i = for_init; i < for_max; i++) {
-        lambda(i);
-      }
-    }
-  }
-
-  void dcForWrapper(int lowBound, int highBound, std::function<void(int)> lambda){
-    dcFor(lowBound, highBound, 1, numWorkers(), lambda);
-  }
-
   void forasync(int lowBound, int highBound, std::function<void(int)> lambda) 
   {
-    #ifdef __FORASYNC__
-    loop_domain_t loop = {lowBound, highBound, 1, (int)highBound/numWorkers()};
+    loop_domain_t *loop = new loop_domain_t; 
+    loop->low = lowBound;
+    loop->high =  highBound;
+    loop->stride = 1;
+    loop->tile =  (int)highBound/numWorkers();
     std::function<void(int)> * copy_of_lambda = new std::function<void(int)> (lambda);
-    ::forasync((void*)&forasync_cpp_wrapper, (void *)copy_of_lambda, NULL, NULL, NULL, 1, &loop, FORASYNC_MODE_FLAT);
- //   delete copy_of_lambda;
-    #else
-    dcForWrapper(lowBound, highBound, lambda);
-    #endif
+    ::forasync((void*)&forasync_cpp_wrapper, (void *)copy_of_lambda, NULL, NULL, NULL, 1, loop, FORASYNC_MODE_FLAT);
   }
 
   DDF_t** DDF_LIST(int total_ddfs) {
