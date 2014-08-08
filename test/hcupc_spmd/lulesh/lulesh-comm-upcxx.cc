@@ -534,7 +534,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
         MPI_COMM_WORLD, &domain.sendRequest[pmsg]) ;
       */
       int target_rank = myRank + domain.tp()*domain.tp();
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          AllCommDataRecv[target_rank] + pmsg * maxPlaneComm,
                          xferFields * sendCount);
       ++pmsg ;
@@ -562,7 +562,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
         MPI_COMM_WORLD, &domain.sendRequest[pmsg]) ;
       */
       int target_rank = myRank - domain.tp()*domain.tp();
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          AllCommDataRecv[target_rank] + pmsg * maxPlaneComm,
                          xferFields * sendCount);
       ++pmsg ;
@@ -624,7 +624,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
         MPI_COMM_WORLD, &domain.sendRequest[pmsg]) ;
       */
       int target_rank = myRank + domain.tp();
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          AllCommDataRecv[target_rank] + pmsg * maxPlaneComm,
                          xferFields * sendCount);
       ++pmsg ;
@@ -653,7 +653,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
         MPI_COMM_WORLD, &domain.sendRequest[pmsg]) ;
       */
       int target_rank = myRank - domain.tp();
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          AllCommDataRecv[target_rank] + pmsg * maxPlaneComm,
                          xferFields * sendCount);
       ++pmsg ;
@@ -720,7 +720,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
         MPI_COMM_WORLD, &domain.sendRequest[pmsg]) ;
       */
       int target_rank = myRank + 1;
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          AllCommDataRecv[target_rank] + pmsg * maxPlaneComm,
                          xferFields * sendCount);
       ++pmsg ;
@@ -750,7 +750,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
         MPI_COMM_WORLD, &domain.sendRequest[pmsg]) ;
       */
       int target_rank = myRank - 1;
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          AllCommDataRecv[target_rank] + pmsg * maxPlaneComm,
                          xferFields * sendCount);
       ++pmsg ;
@@ -780,7 +780,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dz);
       ++emsg ;
@@ -805,7 +805,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dx);
       ++emsg ;
@@ -830,7 +830,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dy);
       ++emsg ;
@@ -855,7 +855,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dz);
       ++emsg ;
@@ -879,7 +879,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dx);
       ++emsg ;
@@ -903,7 +903,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dy);
       ++emsg ;
@@ -929,7 +929,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dz);
       ++emsg ;
@@ -954,7 +954,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dx);
       ++emsg ;
@@ -979,7 +979,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dy);
       ++emsg ;
@@ -1005,7 +1005,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dz);
       ++emsg ;
@@ -1030,7 +1030,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dx);
       ++emsg ;
@@ -1055,7 +1055,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       */
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm);
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(destAddr),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(destAddr),
                          target_ptr,
                          xferFields * dy);
       ++emsg ;
@@ -1081,7 +1081,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm)
         + cmsg * CACHE_COHERENCE_PAD_REAL;
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(comBuf),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(comBuf),
                          target_ptr,
                          xferFields);
       ++cmsg ;
@@ -1104,7 +1104,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm)
         + cmsg * CACHE_COHERENCE_PAD_REAL;
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(comBuf),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(comBuf),
                          target_ptr,
                          xferFields);
       ++cmsg ;
@@ -1128,7 +1128,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm)
         + cmsg * CACHE_COHERENCE_PAD_REAL;
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(comBuf),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(comBuf),
                          target_ptr,
                          xferFields);
       ++cmsg ;
@@ -1151,7 +1151,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm)
         + cmsg * CACHE_COHERENCE_PAD_REAL;
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(comBuf),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(comBuf),
                          target_ptr,
                          xferFields);
       ++cmsg ;
@@ -1175,7 +1175,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm)
         + cmsg * CACHE_COHERENCE_PAD_REAL;
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(comBuf),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(comBuf),
                          target_ptr,
                          xferFields);
       ++cmsg ;
@@ -1198,7 +1198,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm)
         + cmsg * CACHE_COHERENCE_PAD_REAL;
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(comBuf),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(comBuf),
                          target_ptr,
                          xferFields);
       ++cmsg ;
@@ -1222,7 +1222,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm)
         + cmsg * CACHE_COHERENCE_PAD_REAL;
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(comBuf),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(comBuf),
                          target_ptr,
                          xferFields);
       ++cmsg ;
@@ -1244,7 +1244,7 @@ void CommSend_upcxx(Domain& domain, int msgType,
       global_ptr<Real_t> target_ptr =
         AllCommDataRecv[toRank] + (pmsg * maxPlaneComm) + (emsg * maxEdgeComm)
         + cmsg * CACHE_COHERENCE_PAD_REAL;
-      hcpp::async_put<Real_t>(global_ptr<Real_t>(comBuf),
+      hcpp::asyncCopy<Real_t>(global_ptr<Real_t>(comBuf),
                          target_ptr,
                          xferFields);
       ++cmsg ;

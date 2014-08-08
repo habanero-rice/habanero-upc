@@ -16,7 +16,7 @@
  * HCUPC++ routines used here are:
  * hcpp:: finish()
  * hcpp::async()
- * hcpp::async_put()
+ * hcpp::asyncCopy()
  * hcpp::barrier();
  */
 
@@ -331,7 +331,7 @@ void redistribute(uint64_t key_count)
 #endif
 
 #ifdef USE_HABANERO_UPC
-				hcpp::async_put((global_ptr<void>)all_buffers_dst[j].ptr,
+				hcpp::asyncCopy((global_ptr<void>)all_buffers_dst[j].ptr,
 #else
 				upcxx::async_copy((global_ptr<void>)all_buffers_dst[i].ptr,
 #endif

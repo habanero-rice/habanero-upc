@@ -28,7 +28,7 @@ void async_at_received(upcxx::global_ptr<T> remote_lambda) {
 
 // runs at source
 template <typename T>
-void async_at(int p, T lambda) {
+void asyncAt(int p, T lambda) {
 	std::function<void()> * copy_of_upcxx_call_lambda;
 	if(MYTHREAD != p) {
 		register_outgoing_async();
@@ -46,7 +46,7 @@ void async_at(int p, T lambda) {
 }
 
 template <typename T>
-void async_put(upcxx::global_ptr<T> src, upcxx::global_ptr<T> dst, size_t count, DDF_t* ddf=NULL) {
+void asyncCopy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> dst, size_t count, DDF_t* ddf=NULL) {
 	register_outgoing_async();
 	async_comm_hclib([=]() {
 		upcxx::event e;
