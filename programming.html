@@ -27,21 +27,48 @@
     <!-- MAIN CONTENT -->
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
-        <p>
-Habanero-UPC++ is a compiler-free PGAS library, which supports a tighter integration of intra-place and inter-place parallelism than standard hybrid programming approaches. This library implementation is based on a tight integration of the <a href="https://bitbucket.org/upcxx/upcxx/wiki/Installing%20UPC++">UPC++</a> and Habanero-C++ library, with new extensions to support the integration. The <a href="https://bitbucket.org/upcxx/upcxx/wiki/Installing%20UPC++">UPC++</a> library is used to provide PGAS communication and function using The <a href="http://gasnet.lbl.gov/">GASNet</a>, and the Habanero-C++ library is used to provide support for intra-place work-stealing integrated with function shipping and asynchronous remote copy.
-	</p>
 
-	<p>
-Habanero-C++ provides <code>finish-async</code> style dynamic tasking and is build on top of <a href="http://habanero-rice.github.io/hclib/">HClib</a> and <a href="https://01.org/open-community-runtime">OCR</a>.  
-	</p>
+<h1>Writing Habanero-UPC++ programs</h1>
 
-<h3><a href="./overview.html">Habanero-UPC++ Overview</a></h3>
+<p>Habanero-UPC++ defines a C++-based interface in the <code>hcupc-spmd.h</code> header file.
+Just use the include directive in your program to import the interfaces and import the Habanero-UPC++ namespace</p>
 
-<h3>Habanero-UPC++ Installation</h3>
+<pre><code>#include "hcupc-spmd.h"
+using namespace hcpp;</code></pre>
 
-<p>See the <code>README</code> file for detailled installation instructions.</p>
+<h1>Compiling Habanero-UPC++ program </h1>
 
-<h3><a href="./programming.html">Programming Using Habanero-UPC++ Library</a> </h3>
+<p>
+First set the environment variables as mentioned in the <code>README</code> file. A sample Makefile for compiling a Habanero-UPC++ file <code>test.cpp</code> is as shown below:
+</p>
+<p><PRE>
+<code>include $(HABANERO_UPC_INSTALL)/include/hcupc_spmd.mak
+all: test
+
+test: test.o
+        $(CXX) $(PROJECT_LDFLAGS) -o $@ $^ $(PROJECT_LDLIBS)
+
+test.o: test.cpp
+        $(CXX) $(PROJECT_CXXFLAGS) -o $@ -c $<</code></PRE>
+</p>
+
+<h1>Executing Habanero-UPC++ program </h1>
+
+<p>
+First set the work-stealing configuration file, which declares the total number of worker threads. The directory <code>machine-configs</code> contains the templates for different number of worker threads. For using 10 worker threads at each Habanero-UPC++ execution place, the environment variable is set as:
+</p>
+
+<p>
+<PRE><code>export OCR_CONFIG=<absolute path>/habanero-upc/machine-configs/mach-hcupc-commMaster-10w.cfg</code></PRE>
+</p>
+
+<p>
+The executable <code>test</code> can be run using <code>mpirun</code> as:
+</p>
+
+<p>
+<PRE><code>mpirun -np < Total Places > ./test < Command line input to test ></code></PRE>
+</p>
 
       </section>
     </div>

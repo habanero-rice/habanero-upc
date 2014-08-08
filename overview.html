@@ -27,21 +27,75 @@
     <!-- MAIN CONTENT -->
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
-        <p>
-Habanero-UPC++ is a compiler-free PGAS library, which supports a tighter integration of intra-place and inter-place parallelism than standard hybrid programming approaches. This library implementation is based on a tight integration of the <a href="https://bitbucket.org/upcxx/upcxx/wiki/Installing%20UPC++">UPC++</a> and Habanero-C++ library, with new extensions to support the integration. The <a href="https://bitbucket.org/upcxx/upcxx/wiki/Installing%20UPC++">UPC++</a> library is used to provide PGAS communication and function using The <a href="http://gasnet.lbl.gov/">GASNet</a>, and the Habanero-C++ library is used to provide support for intra-place work-stealing integrated with function shipping and asynchronous remote copy.
-	</p>
 
-	<p>
-Habanero-C++ provides <code>finish-async</code> style dynamic tasking and is build on top of <a href="http://habanero-rice.github.io/hclib/">HClib</a> and <a href="https://01.org/open-community-runtime">OCR</a>.  
-	</p>
+<h1>Habanero-UPC++ Overview</h1>
 
-<h3><a href="./overview.html">Habanero-UPC++ Overview</a></h3>
+<p>
+The different types of supported <STRONG>intra-place</STRONG> <a href="https://wiki.rice.edu/confluence/display/HABANERO/Habanero-C">asynchronous tasks</a> are as following:
+</p>
 
-<h3>Habanero-UPC++ Installation</h3>
+<p>
+<PRE><code>async([capture_list]() {
+  S1;
+});
 
-<p>See the <code>README</code> file for detailled installation instructions.</p>
+// async with Data-Driven Futures (DDFs)
+asyncAwait(ddf_1, ddf_2, ...., [capture_list]() {
+  S2;
+});
 
-<h3><a href="./programming.html">Programming Using Habanero-UPC++ Library</a> </h3>
+// async with Phasers
+asyncPhased(ph_1, mode_1, ph_2, mode_2, ...., [capture_list]() {
+  S3;
+});
+
+// parallel for loop
+forasync(dim, style, ind1, ind2, ..., siz1, siz2, ..., 
+			     seq1, seq2, ..., [capture_list]() {
+  S4;
+});</code> </PRE>
+</p>
+
+<p>
+The different types of supported <STRONG>inter-place</STRONG> asynchronous tasks (extended from <a href="http://www.cs.berkeley.edu/~kamil/papers/ipdps14.pdf">UPC++</a>) are as following:
+</p>
+ 
+<p>
+<PRE><code>// asynchronous task invocation at remote place
+asyncAt(place, [capture_list]() {
+  S5;
+});
+
+// asynchronous remote copy
+asyncCopy(global_ptr<T> src, global_ptr<T> dst, size_t count, DDF* ddf=NULL);</code></PRE>
+</p>
+
+<p>
+Both <STRONG>intra-place</STRONG> and <STRONG>inter-place</STRONG> asynchronous tasks can be joined by using a special finish:
+</p>
+
+<p>
+<PRE><code>finish_spmd([capture_list]() {
+  async(....);
+  asyncAwait(...);
+  asyncPhased(...);
+  forasync(...);
+  asyncAt(...);
+  asyncCopy(...);
+});</code></PRE>
+</p>
+
+<p>A normal finish can be used for joining <STRONG>only intra-place</STRONG> asynchronous tasks. Tasks in this finish scope cannot spawn any <STRONG>inter-place</STRONG> asynchronous tasks.</p>
+
+<p>
+<PRE>
+<code>finish([capture_list]() {
+  async(....);
+  asyncAwait(...);
+  asyncPhased(...);
+  forasync(...);
+});</code></PRE>
+</p>
 
       </section>
     </div>
