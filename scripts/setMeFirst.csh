@@ -23,6 +23,7 @@ cd ..
 setenv BASE `pwd`
 cd -
 
+setenv HCPP_ROOT ${HCPP_BASE}/hcpp-install
 setenv HABANERO_UPC_ROOT ${BASE}/habanero-upc-install
 setenv HCLIB_ROOT ${BASE}/others/hclib/hcupc/hclib-install
 setenv OCR_ROOT ${BASE}/others/ocr/hcupc/ocr-install

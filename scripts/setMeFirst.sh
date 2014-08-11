@@ -23,6 +23,7 @@ cd ..
 BASE=`pwd`
 cd -
 
+export HCPP_ROOT=${HCPP_BASE}/hcpp-install
 export HABANERO_UPC_ROOT=${BASE}/habanero-upc-install
 export HCLIB_ROOT=${BASE}/others/hclib/hcupc/hclib-install
 export OCR_ROOT=${BASE}/others/ocr/hcupc/ocr-install
