@@ -8,8 +8,8 @@ SHELL = /bin/sh
 LULESH_EXEC = lulesh-hcupc
 all: clean $(LULESH_EXEC) clean-obj
 
-include $(HABANERO_UPC_INSTALL)/include/hcupc_spmd.mak
-VPATH=$(UPCPP_INSTALL)/include
+include $(HABANERO_UPC_ROOT)/include/hcupc_spmd.mak
+VPATH=$(UPCPP_ROOT)/include
 
 MPI_INC = /opt/local/include/openmpi
 MPI_LIB = /opt/local/lib

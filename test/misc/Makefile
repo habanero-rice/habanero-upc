@@ -1,4 +1,4 @@
-include $(HABANERO_UPC_INSTALL)/include/hcupc_spmd.mak
+include $(HABANERO_UPC_ROOT)/include/hcupc_spmd.mak
 
 EXE=test test_ddf
 

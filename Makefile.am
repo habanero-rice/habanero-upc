@@ -10,7 +10,8 @@ AUX_DIST = \
 	$(ac_aux_dir)/depcomp
 
 library_includedir=$(includedir)
-library_include_HEADERS = inc/hcpp.h inc/hcupc_spmd.h inc/hcpp-asyncAwait.h inc/hcpp-utils.h inc/hcupc_spmd-main.h inc/hcpp-asyncPhased.h inc/hcupc_spmd-util.h inc/hcupc_spmd.mak
+
+library_include_HEADERS = inc/hcupc_spmd.h inc/hcupc_spmd-main.h inc/hcupc_spmd-util.h inc/hcupc_spmd.mak
 
 MAINTAINERCLEANFILES = Makefile.in \
 	aclocal.m4 \

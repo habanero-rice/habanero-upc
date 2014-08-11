@@ -64,6 +64,22 @@ AC_SUBST([PHASER_CFLAGS])
 AC_SUBST([PHASER_LDFLAGS])
 
 
+###################################################################
+########### GET LOW LEVEL DETAILS IN THE INSTALLATION #############
+###################################################################
+
+# Conditional flag to build for the hcpp/hcupc++ library
+
+AC_ARG_ENABLE([cpp11],
+[  --enable-cpp11    C++11 lambda compatibility (Default is false)],
+[case "${enableval}" in
+  yes) cpp11=true ;;
+  no)  cpp11=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-cpp11]) ;;
+esac],[cpp11=false])
+AM_CONDITIONAL([CPP11], [test x$cpp11 = xtrue])
+
+
 # Variable substitutions.
 AC_SUBST([ac_aux_dir])
 AC_SUBST([abs_top_srcdir])

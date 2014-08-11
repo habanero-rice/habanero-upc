@@ -2,16 +2,20 @@
 HABANERO-UPC LIBRARY INSTALLATION PROCEDURE
 =============================================
 
-1) Set the paths correctly in ./scripts/setMeFirst.sh (bash) or ./scripts/setMeFirst.csh (cshell)
+1) Checkout Habanero-C++ library:
+
+git clone https://github.com/habanero-rice/hcpp.git
+
+2) Set the paths correctly in ./scripts/setMeFirst.sh (bash) or ./scripts/setMeFirst.csh (cshell)
 	NOTE: UPC++ installation guide: https://bitbucket.org/upcxx/upcxx/wiki/Installing%20UPC++
 
-2) cd scripts
+3) cd scripts
 
-3) source ./setMeFirst.sh (or source ./setMeFirst.csh)
+4) source ./setMeFirst.sh (or source ./setMeFirst.csh)
 
-4) cd ..
+5) cd ..
 
-5) ./install.sh
+6) ./install.sh
 
 =============================================
 BUILDING TESTCASES
@@ -32,6 +36,8 @@ export OCR_CONFIG=<ABSOLUTE PATH TO THE CONFIGURATION FILE>/mach-hcupc-commMaste
               OR
 setenv OCR_CONFIG <ABSOLUTE PATH TO THE CONFIGURATION FILE>/mach-hcupc-commMaster-10w.cfg
 
-3) Execute the testcase like normal c++ executable
+3) Execute the testcase using mpirun as :
+
+mpirun -np 2 ./test
 
 

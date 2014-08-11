@@ -5,7 +5,7 @@ AC_PREREQ([2.59])
 AC_INIT([habanero-upc], [0.1], [hc-dev-l@mailman.rice.edu])
 
 # check if srcdir is correct
-AC_CONFIG_SRCDIR([inc/hcpp.h])
+AC_CONFIG_SRCDIR([inc/hcupc_spmd.h])
 
 AC_CONFIG_AUX_DIR([config])
 
@@ -35,3 +35,4 @@ src/Makefile
 # Generates and runs config.status, which in turn creates the makefiles 
 # and any other files resulting from configuration
 AC_OUTPUT
+

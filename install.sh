@@ -10,6 +10,11 @@ echo "================== BUILDING HCLIB ==================="
 cd ${BASE}/others/hclib/hcupc
 ./install.sh
 
+echo "================== BUILDING HCPP ==================="
+cd ${HCPP_BASE}
+./clobber.sh
+./installwithupc.sh
+
 echo "================== BUILDING HABANERO_UPC=============="
 cd $BASE
 
