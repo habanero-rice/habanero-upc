@@ -1,8 +1,11 @@
 include $(HABANERO_UPC_ROOT)/include/hcupc_spmd.mak
 
-EXE=test test_ddf
+EXE=test test2 test_ddf
 
 all: clean $(EXE) clean-obj
+
+test2: test2.cpp
+	$(CXX) $(PROJECT_LDFLAGS) $(PROJECT_CXXFLAGS) -o $@ $^ $(PROJECT_LDLIBS)
 
 test: test.cpp
 	$(CXX) $(PROJECT_LDFLAGS) $(PROJECT_CXXFLAGS) -o $@ $^ $(PROJECT_LDLIBS)

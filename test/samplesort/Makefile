@@ -1,7 +1,6 @@
 include $(HABANERO_UPC_ROOT)/include/hcupc_spmd.mak
 
-EXE=sample_sort-hcupc
-#EXE=sample_sort-upcxx
+EXE=sample_sort-hcupc sample_sort-upcxx
 
 all: clean $(EXE) clean-obj
 

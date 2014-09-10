@@ -37,12 +37,25 @@ using namespace upcxx;
 #define ELEMENT_T uint64_t
 #define RANDOM_SEED 12345
 
-#ifndef DEBUG
-#define SAMPLES_PER_THREAD 128
-#define KEYS_PER_THREAD 4 * 1024 * 1024
-#else
+#ifdef DEBUG
 #define SAMPLES_PER_THREAD 8
-#define KEYS_PER_THREAD 128
+#define KEYS_PER_THREAD 1024
+#else
+
+#ifdef USE_HABANERO_UPC
+// This configuration is only for Edison which
+// has 12 cores per socket. We can either run
+// 12 UPC++ place/socket or 1 HabaneroUPC++ place/socket
+// with 12 HC workers.
+#define SAMPLES_PER_THREAD 12 * 128
+#define KEYS_PER_THREAD 12 * 1024 * 1024
+// 10% as grainularity
+#define HC_GRAINULARITY_FACTOR 0.1
+#else
+#define SAMPLES_PER_THREAD 128
+#define KEYS_PER_THREAD 1024 * 1024
+#endif
+
 #endif //DEBUG
 
 #ifdef USE_HABANERO_UPC
@@ -68,21 +81,42 @@ int partition(ELEMENT_T* data, int left, int right) {
 	return i;
 }
 
-void hcpp_sort(ELEMENT_T* data, int left, int right) {
-	int index = partition(data, left, right);
-	hcpp::finish([=]() {
-		if (left < index - 1) {
-			hcpp::async([=]() {
-				hcpp_sort(data, left, (index - 1));
-			});
-		}
+int compare(const void * a, const void * b)
+{
+	if ( *(ELEMENT_T*)a <  *(ELEMENT_T*)b ) return -1;
+	else if ( *(ELEMENT_T*)a == *(ELEMENT_T*)b ) return 0;
+	else return 1;
+}
 
-		if (index < right) {
-			hcpp::async([=]() {
-				hcpp_sort(data, index, right);
-			});
-		}
-	});
+void sort(ELEMENT_T* data, int left, int right, ELEMENT_T threshold) {
+	if (right - left + 1 > threshold) {
+		int index = partition(data, left, right);
+		hcpp::finish([=]() {
+			if (left < index - 1) {
+				hcpp::async([=]() {
+                        		sort(data, left, (index - 1), threshold);
+				});
+			}
+
+			if (index < right) {
+				hcpp::async([=]() {
+					sort(data, index, right, threshold);
+				});
+			}
+		});
+
+	}
+	else {
+		//  quicksort in C++ library
+		qsort(data+left, right - left + 1, sizeof(ELEMENT_T), compare);
+	}
+
+}
+
+void hcpp_sort(ELEMENT_T* data, int left, int right) {
+	ELEMENT_T threshold = (ELEMENT_T)(0.1 * (right - left + 1));
+	//ELEMENT_T threshold = (ELEMENT_T)( HC_GRAINULARITY_FACTOR * (right - left + 1));
+	sort(data, left, right, threshold);
 }
 #endif
 
