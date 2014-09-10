@@ -5,10 +5,10 @@ EXE=sample_sort-hcupc sample_sort-upcxx
 all: clean $(EXE) clean-obj
 
 sample_sort-hcupc: sample_sort.cpp
-	$(CXX) -DUSE_HABANERO_UPC=1 $(PROJECT_LDFLAGS) $(PROJECT_CXXFLAGS) -o $@ $^ $(PROJECT_LDLIBS)
+	$(CXX) -DUSE_HABANERO_UPC $(PROJECT_LDFLAGS) $(PROJECT_CXXFLAGS) -o $@ $^ $(PROJECT_LDLIBS)
 
 sample_sort-upcxx: sample_sort.cpp
-	$(CXX) -DUSE_HABANERO_UPC=0 $(PROJECT_LDFLAGS) $(PROJECT_CXXFLAGS) -o $@ $^ $(PROJECT_LDLIBS)
+	$(CXX) $(UPCXX_LDFLAGS) $(UPCXX_CXXFLAGS) -o $@ $^ $(UPCXX_LDLIBS)
 
 clean-obj:
 	rm -rf *.o *.dSYM
