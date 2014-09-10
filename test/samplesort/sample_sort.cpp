@@ -48,12 +48,12 @@ using namespace upcxx;
 // 12 UPC++ place/socket or 1 HabaneroUPC++ place/socket
 // with 12 HC workers.
 #define SAMPLES_PER_THREAD 12 * 128
-#define KEYS_PER_THREAD 12 * 1024 * 1024
+#define KEYS_PER_THREAD 12 * 4 * 1024 * 1024
 // 10% as grainularity
 #define HC_GRAINULARITY_FACTOR 0.1
 #else
 #define SAMPLES_PER_THREAD 128
-#define KEYS_PER_THREAD 1024 * 1024
+#define KEYS_PER_THREAD 4 * 1024 * 1024
 #endif
 
 #endif //DEBUG
@@ -115,7 +115,7 @@ void sort(ELEMENT_T* data, int left, int right, ELEMENT_T threshold) {
 
 void hcpp_sort(ELEMENT_T* data, int left, int right) {
 	ELEMENT_T threshold = (ELEMENT_T)(0.1 * (right - left + 1));
-	//ELEMENT_T threshold = (ELEMENT_T)( HC_GRAINULARITY_FACTOR * (right - left + 1));
+	printf("Sort: Size = %llu, Grain = %llu\n",(right - left + 1), threshold);
 	sort(data, left, right, threshold);
 }
 #endif
