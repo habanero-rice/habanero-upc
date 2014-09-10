@@ -387,13 +387,11 @@ static void forasync_internal(void* user_fct_ptr, void * user_arg,
 
 //
 //  forasync. runtime_type specifies the type of runtime (1 = recursive) (default = chunk)
-void forasync(void* forasync_fct, void * argv, struct ddf_st ** ddf_list, struct _phased_t * phased_clause, 
+
+// Using this type of function as somehow the linker is failing on Eidson when trying to
+// link to forasync. If remove this definition from here to hclib.c then it works fine.
+void forasync_lib_interface(void* forasync_fct, void * argv, struct ddf_st ** ddf_list, struct _phased_t * phased_clause, 
             struct _accumed_t * accumed, int dim, loop_domain_t * domain, forasync_mode_t mode) {
     forasync_internal(forasync_fct, argv, accumed, dim, domain, mode);
 }
-
-void forasync_hcupc(forasync_hcupc_t* fasync) {
-  forasync(fasync->forasync_fct, fasync->argv, fasync->ddf_list, fasync->phased_clause, fasync->accumed, fasync->dim, fasync->domain, fasync->mode);
-}
-
 

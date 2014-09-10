@@ -246,3 +246,8 @@ void async_comm(asyncFct_t fct_ptr, void * arg,
     async_task_t * async_task = allocate_async_task(&async_def);
     schedule_async(async_task, root_comm_async_task->current_finish, property);
 }
+
+void forasync(void* forasync_fct, void * argv, struct ddf_st ** ddf_list, struct _phased_t * phased_clause,
+            struct _accumed_t * accumed, int dim, loop_domain_t * domain, forasync_mode_t mode) {
+	forasync_lib_interface(forasync_fct,argv,ddf_list,phased_clause,accumed,dim,domain,mode);
+}
