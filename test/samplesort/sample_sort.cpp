@@ -50,13 +50,14 @@ using namespace upcxx;
 #define SAMPLES_PER_THREAD 12 * 128
 #define KEYS_PER_THREAD 12 * 4 * 1024 * 1024
 // 10% as grainularity
-#define HC_GRAINULARITY_FACTOR 0.1
 #else
 #define SAMPLES_PER_THREAD 128
 #define KEYS_PER_THREAD 4 * 1024 * 1024
 #endif
 
 #endif //DEBUG
+
+double granularity = 0.0001;
 
 #ifdef USE_HABANERO_UPC
 
@@ -114,8 +115,7 @@ void sort(ELEMENT_T* data, int left, int right, ELEMENT_T threshold) {
 }
 
 void hcpp_sort(ELEMENT_T* data, int left, int right) {
-	ELEMENT_T threshold = (ELEMENT_T)(0.1 * (right - left + 1));
-	printf("Sort: Size = %llu, Grain = %llu\n",(right - left + 1), threshold);
+	ELEMENT_T threshold = (ELEMENT_T)(granularity * (right - left + 1));
 	sort(data, left, right, threshold);
 }
 #endif
@@ -457,6 +457,7 @@ int main(int argc, char **argv)
 #ifndef USE_HABANERO_UPC
 	upcxx::init(&argc, &argv);
 #endif
+	if(argc>1) sscanf(argv[1],"%lf",&granularity);
 	// PLOTTY SUPPORT
 	if(MYTHREAD == 0) {
 		printf("\n");
