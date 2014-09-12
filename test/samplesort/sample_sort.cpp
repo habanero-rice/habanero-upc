@@ -41,7 +41,6 @@ using namespace upcxx;
 #define SAMPLES_PER_THREAD 8
 #define KEYS_PER_THREAD 1024
 #else
-
 #ifdef USE_HABANERO_UPC
 // This configuration is only for Edison which
 // has 12 cores per socket. We can either run
@@ -49,15 +48,12 @@ using namespace upcxx;
 // with 12 HC workers.
 #define SAMPLES_PER_THREAD 12 * 128
 #define KEYS_PER_THREAD 12 * 4 * 1024 * 1024
-// 10% as grainularity
+#define HC_GRANULARITY  5120
 #else
 #define SAMPLES_PER_THREAD 128
 #define KEYS_PER_THREAD 4 * 1024 * 1024
 #endif
-
 #endif //DEBUG
-
-double granularity = 0.0001;
 
 #ifdef USE_HABANERO_UPC
 
@@ -89,19 +85,19 @@ int compare(const void * a, const void * b)
 	else return 1;
 }
 
-void sort(ELEMENT_T* data, int left, int right, ELEMENT_T threshold) {
-	if (right - left + 1 > threshold) {
+void hcpp_sort(ELEMENT_T* data, int left, int right) {
+	if (right - left + 1 > HC_GRANULARITY) {
 		int index = partition(data, left, right);
 		hcpp::finish([=]() {
 			if (left < index - 1) {
 				hcpp::async([=]() {
-                        		sort(data, left, (index - 1), threshold);
+                        		hcpp_sort(data, left, (index - 1));
 				});
 			}
 
 			if (index < right) {
 				hcpp::async([=]() {
-					sort(data, index, right, threshold);
+					hcpp_sort(data, index, right);
 				});
 			}
 		});
@@ -112,11 +108,6 @@ void sort(ELEMENT_T* data, int left, int right, ELEMENT_T threshold) {
 		qsort(data+left, right - left + 1, sizeof(ELEMENT_T), compare);
 	}
 
-}
-
-void hcpp_sort(ELEMENT_T* data, int left, int right) {
-	ELEMENT_T threshold = (ELEMENT_T)(granularity * (right - left + 1));
-	sort(data, left, right, threshold);
 }
 #endif
 
@@ -457,7 +448,6 @@ int main(int argc, char **argv)
 #ifndef USE_HABANERO_UPC
 	upcxx::init(&argc, &argv);
 #endif
-	if(argc>1) sscanf(argv[1],"%lf",&granularity);
 	// PLOTTY SUPPORT
 	if(MYTHREAD == 0) {
 		printf("\n");
