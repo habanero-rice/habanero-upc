@@ -8,8 +8,8 @@ SHELL = /bin/sh
 LULESH_EXEC = lulesh2.0-upcxx
 all: $(LULESH_EXEC)
 
-include $(UPCPP_INSTALL)/include/upcxx.mak
-VPATH=$(UPCPP_INSTALL)/include
+include $(UPCPP_ROOT)/include/upcxx.mak
+VPATH=$(UPCPP_ROOT)/include
 
 MPI_INC = /opt/local/include/openmpi
 MPI_LIB = /opt/local/lib
@@ -19,7 +19,7 @@ MPI_LIB = /opt/local/lib
 #UPCXX = mpicxx -fast -DUSE_OMP=1 -fopenmp
 #CXX = clang++ -DUSE_OMP=0
 #MPICXX = mpicxx -DUSE_OMP=0
-UPCXX = CC -DUSE_OMP=0
+UPCXX = $(CXX) -DUSE_OMP=0
 #UPCXX = mpicxx -DUSE_OMP=1 -fopenmp
 
 SOURCES2.0 = \
