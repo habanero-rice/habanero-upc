@@ -13,10 +13,16 @@
 #include <mpi.h>
 #endif
 
-#define MAX_CPUS_ON_EDISON 24
-
+#if USE_HABANERO_UPC
 #include "hcupc_spmd-util.h"
+#else
+#include <upcxx.h>
+#endif
+
 using namespace upcxx;
+
+#include <list>
+#include <functional>
 
 #include <time.h>
 #include <sys/time.h>

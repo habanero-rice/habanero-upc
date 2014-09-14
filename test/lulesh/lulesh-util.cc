@@ -215,5 +215,5 @@ Real_t VerifyAndWriteFinalOutput(Real_t elapsed_time,
    printf("Grind time (us/z/c)  = %10.8g (per dom)  (%10.8g overall)\n", grindTime1, grindTime2);
    printf("FOM                  = %10.8g (z/s)\n\n", 1000.0/grindTime2); // zones per second
 
-   return 1000.0/grindTime2 ;
+   return 1000.0/grindTime2;
 }
