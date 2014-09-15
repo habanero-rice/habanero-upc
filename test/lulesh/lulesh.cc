@@ -152,7 +152,7 @@ Additional BSD Notice
 # include <omp.h>
 #endif
 
-#define LAMBDA_FOR_SMALL_LOOP 1
+//#define LAMBDA_FOR_SMALL_LOOP 1
 
 /*********************************/
 /* Data structure implementation */
@@ -509,7 +509,11 @@ void IntegrateStressForElems( Index_t *nodelist,
 	Real_t fz_local[8] ;
 
 	// loop over all elements
+	#ifdef LAMBDA_FOR_SMALL_LOOP
 	const bool parallelize = true;
+	#else
+	const bool parallelize = false;
+	#endif
 
 	parallel_looper(0, numElem, parallelize, [&](int k) {
 		const Index_t* const elemNodes = &nodelist[8*k];
@@ -783,7 +787,11 @@ void CalcFBHourglassForceForElems( Domain &domain,
 	/*************************************************/
 	/*    compute the hourglass modes */
 
+	#ifdef LAMBDA_FOR_SMALL_LOOP
 	const bool parallelize = true;
+	#else
+	const bool parallelize = false;
+	#endif
 
 	parallel_looper(0, numElem, parallelize, [&](int i2) {
 		Real_t *fx_local, *fy_local, *fz_local ;
@@ -2497,7 +2505,12 @@ void CalcCourantConstraintForElems(Int_t length,
 		Index_t  courant_elem  = -1 ;
 
 		Index_t thread_num = 0;
-		const bool parallelize = true;
+	#ifdef LAMBDA_FOR_SMALL_LOOP
+	const bool parallelize = true;
+	#else
+	const bool parallelize = false;
+	#endif
+
 
 		parallel_looper(0, length, parallelize, [&](int i) {
 			Index_t indx = regElemlist[i] ;
@@ -2556,7 +2569,12 @@ void CalcHydroConstraintForElems(Int_t length,
 		Real_t dthydro_tmp = dthydro ;
 		Index_t hydro_elem = -1 ;
 
-		const bool parallelize = true;
+	#ifdef LAMBDA_FOR_SMALL_LOOP
+	const bool parallelize = true;
+	#else
+	const bool parallelize = false;
+	#endif
+
 		Index_t thread_num = 0;
 		parallel_looper(0, length, parallelize, [&](int i) {
 			Index_t indx = regElemlist[i] ;
