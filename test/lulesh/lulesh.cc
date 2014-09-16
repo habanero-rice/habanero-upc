@@ -161,14 +161,12 @@ Additional BSD Notice
  * 3) LAMBDA_LOOP_TILING_FACTOR
  * 		=> CALLING A LAMBDA FOR EACH ITERATION OF FOR LOOP IS HAVING OVERHEADS. TO REDUCE THIS OVERHEAD WE TILE THE FOR LOOP
  * 		   AND ITERATE IN CHUNKS WHERE A FOR LOOP INSIDE THE LAMBDA DOES AN ITERATION ON THE TILE SIZE.
- * 		   USE VALUE AS 0 WHEN THIS FEATURE IS TO SWITCH OFF. VALUE =N WILL CHUNK AS HIGHBOUND/(N*HC_WORKER)
+ * 		   USE VALUE AS 0 WHEN THIS FEATURE IS TO SWITCH OFF. VALUE =N WILL TILE AS HIGHBOUND*N
  */
 
-static int HC_WORKERS = 1;
-
-#define LAMBDA_FOR_SMALL_LOOP 1
+//#define LAMBDA_FOR_SMALL_LOOP 1
 //#define LAMBDA_LOOP_TILING_FACTOR  0
-#define LAMBDA_LOOP_TILING_FACTOR  1
+#define LAMBDA_LOOP_TILING_FACTOR  0.01
 
 /*********************************/
 /* Data structure implementation */
@@ -192,7 +190,7 @@ void Release(T **ptr)
 	}
 }
 
-void parallel_looper(int lowBound, int highBound, bool hcpp_tiling, bool parallelize, std::function<void(int)> lambda) {
+void parallel_looper(int lowBound, int highBound, bool parallelize, std::function<void(int)> lambda) {
 #if USE_HABANERO_UPC
 	if(parallelize) {
 		const int tile = 0; //hcpp_tiling ? 0 : 1;
@@ -293,22 +291,21 @@ void InitStressTermsForElems(Real_t *p, Real_t *q,
 #ifdef LAMBDA_FOR_SMALL_LOOP
 	// Change highB
 	const int highB = numElem;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, true, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			sigxx[i] = sigyy[i] = sigzz[i] =  - p[i] - q[i] ;
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			sigxx[i] = sigyy[i] = sigzz[i] =  - p[i] - q[i] ;
@@ -554,15 +551,14 @@ void IntegrateStressForElems( Index_t *nodelist,
 
 	// Change highB
 	const int highB = numElem;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, parallelize, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, parallelize, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int k = iterator;
 			const Index_t* const elemNodes = &nodelist[8*k];
@@ -609,7 +605,7 @@ void IntegrateStressForElems( Index_t *nodelist,
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int k = iterator;
 			const Index_t* const elemNodes = &nodelist[8*k];
@@ -891,15 +887,14 @@ void CalcFBHourglassForceForElems( Domain &domain,
 #endif
 	// Change highB
 	const int highB = numElem;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, parallelize, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, parallelize, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int i2 = iterator;
 			Real_t *fx_local, *fy_local, *fz_local ;
@@ -1063,7 +1058,7 @@ void CalcFBHourglassForceForElems( Domain &domain,
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int i2 = iterator;
 			Real_t *fx_local, *fy_local, *fz_local ;
@@ -1246,15 +1241,14 @@ void CalcHourglassControlForElems(Domain& domain,
 	/* start loop over elements */
 	// Change highB
 	const int highB = numElem;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, true, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			Real_t  x1[8],  y1[8],  z1[8] ;
@@ -1291,7 +1285,7 @@ void CalcHourglassControlForElems(Domain& domain,
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			Real_t  x1[8],  y1[8],  z1[8] ;
@@ -1407,15 +1401,14 @@ static inline void CalcForceForNodes(Domain& domain)
 #ifdef LAMBDA_FOR_SMALL_LOOP
 	// Change highB
 	const int highB = numNode;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, true, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			domain.fx(i) = Real_t(0.0) ;
@@ -1424,7 +1417,7 @@ static inline void CalcForceForNodes(Domain& domain)
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			domain.fx(i) = Real_t(0.0) ;
@@ -1474,15 +1467,14 @@ void CalcAccelerationForNodes(Real_t *xdd, Real_t *ydd, Real_t *zdd,
 #ifdef LAMBDA_FOR_SMALL_LOOP
 	// Change highB
 	const int highB = numNode;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, true, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			xdd[i] = fx[i] / nodalMass[i];
@@ -1491,7 +1483,7 @@ void CalcAccelerationForNodes(Real_t *xdd, Real_t *ydd, Real_t *zdd,
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			xdd[i] = fx[i] / nodalMass[i];
@@ -1520,15 +1512,14 @@ void ApplyAccelerationBoundaryConditionsForNodes(Domain& domain)
 #ifdef LAMBDA_FOR_SMALL_LOOP
 		// Change highB
 		const int highB = numNodeBC;
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
-		const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-		int iterator = 0;
-		parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-			const int start = outterI*chunks;
-			for(; iterator<(tile*chunks); iterator++) {
+		parallel_looper(lowB, chunks, true, [&](int outterI) {
+			const int start = outterI*tile;
+			for(int iterator=start; iterator<(start+tile); iterator++) {
 				// Change iterator X 1
 				const int i = iterator;
 				if (!domain.symmXempty() != 0) {
@@ -1543,7 +1534,7 @@ void ApplyAccelerationBoundaryConditionsForNodes(Domain& domain)
 			}
 		});
 		if(sizeB < highB) {
-			for(iterator=sizeB; iterator<highB; iterator++) {
+			for(int iterator=sizeB; iterator<highB; iterator++) {
 				// Change iterator X 1
 				const int i = iterator;
 				if (!domain.symmXempty() != 0) {
@@ -1584,15 +1575,14 @@ void CalcVelocityForNodes(Real_t *xd,  Real_t *yd,  Real_t *zd,
 
 	// Change highB
 	const int highB = numNode;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, true, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			Real_t xdtmp, ydtmp, zdtmp ;
@@ -1611,7 +1601,7 @@ void CalcVelocityForNodes(Real_t *xd,  Real_t *yd,  Real_t *zd,
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			Real_t xdtmp, ydtmp, zdtmp ;
@@ -1641,15 +1631,14 @@ void CalcPositionForNodes(Real_t *x,  Real_t *y,  Real_t *z,
 #ifdef LAMBDA_FOR_SMALL_LOOP
 	// Change highB
 	const int highB = numNode;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, true, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			x[i] += xd[i] * dt ;
@@ -1658,7 +1647,7 @@ void CalcPositionForNodes(Real_t *x,  Real_t *y,  Real_t *z,
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			x[i] += xd[i] * dt ;
@@ -1977,15 +1966,14 @@ void CalcKinematicsForElems( Index_t *nodelist,
 	// loop over all elements
 	// Change highB
 	const int highB = numElem;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, true, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int k = iterator;
 			Real_t B[3][8] ; /** shape function derivatives */
@@ -2051,7 +2039,7 @@ void CalcKinematicsForElems( Index_t *nodelist,
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int k = iterator;
 			Real_t B[3][8] ; /** shape function derivatives */
@@ -2140,15 +2128,14 @@ void CalcLagrangeElements(Domain& domain, Real_t* vnew)
 		// element loop to do some stuff not included in the elemlib function.
 		// Change highB
 		const int highB = numElem;
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
-		const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-		int iterator = 0;
-		parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-			const int start = outterI*chunks;
-			for(; iterator<(tile*chunks); iterator++) {
+		parallel_looper(lowB, chunks, true, [&](int outterI) {
+			const int start = outterI*tile;
+			for(int iterator=start; iterator<(start+tile); iterator++) {
 				// Change iterator X 1
 				const int k = iterator;
 				// calc strain rate and apply as constraint (only done in FB element)
@@ -2173,7 +2160,7 @@ void CalcLagrangeElements(Domain& domain, Real_t* vnew)
 			}
 		});
 		if(sizeB < highB) {
-			for(iterator=sizeB; iterator<highB; iterator++) {
+			for(int iterator=sizeB; iterator<highB; iterator++) {
 				// Change iterator X 1
 				const int k = iterator;
 				// calc strain rate and apply as constraint (only done in FB element)
@@ -2217,15 +2204,14 @@ void CalcMonotonicQGradientsForElems(Domain& domain, Real_t vnew[])
 
 	// Change highB
 	const int highB = numElem;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, true, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			const Real_t ptiny = Real_t(1.e-36) ;
@@ -2367,7 +2353,7 @@ void CalcMonotonicQGradientsForElems(Domain& domain, Real_t vnew[])
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			const Real_t ptiny = Real_t(1.e-36) ;
@@ -2530,15 +2516,14 @@ void CalcMonotonicQRegionForElems(Domain &domain, Int_t r,
 
 	// Change highB
 	const int highB = domain.regElemSize(r);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, true, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int ielem = iterator;
 			Index_t i = domain.regElemlist(r,ielem);
@@ -2674,7 +2659,7 @@ void CalcMonotonicQRegionForElems(Domain &domain, Int_t r,
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int ielem = iterator;
 			Index_t i = domain.regElemlist(r,ielem);
@@ -2920,15 +2905,14 @@ void CalcPressureForElems(Real_t* p_new, Real_t* bvc,
 
 	// Change highB
 	const int highB = length;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, true, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			Real_t c1s = Real_t(2.0)/Real_t(3.0) ;
@@ -2949,7 +2933,7 @@ void CalcPressureForElems(Real_t* p_new, Real_t* bvc,
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			Real_t c1s = Real_t(2.0)/Real_t(3.0) ;
@@ -2988,43 +2972,44 @@ void CalcEnergyForElems(Real_t* p_new, Real_t* e_new, Real_t* q_new,
 	Real_t *pHalfStep = Allocate<Real_t>(length) ;
 
 #ifdef LAMBDA_FOR_SMALL_LOOP
-	// Change highB
-	int highB = length;
-	int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
-	int lowB = 0;
-	int chunks = (int) (highB/tile);
-	int sizeB = tile * chunks;
-	bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
-			// Change iterator X 1
-			const int i = iterator;
-			e_new[i] = e_old[i] - Real_t(0.5) * delvc[i] * (p_old[i] + q_old[i])
-						        																																																																																						 + Real_t(0.5) * work[i];
+	{
+		// Change highB
+		const int highB = length;
+		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		int lowB = 0;
+		int chunks = (int) (highB/tile);
+		int sizeB = tile * chunks;
+		parallel_looper(lowB, chunks, true, [&](int outterI) {
+			const int start = outterI*tile;
+			for(int iterator=start; iterator<(start+tile); iterator++) {
+				// Change iterator X 1
+				const int i = iterator;
+				e_new[i] = e_old[i] - Real_t(0.5) * delvc[i] * (p_old[i] + q_old[i])
+						        																																																																																														 + Real_t(0.5) * work[i];
 
-			if (e_new[i]  < emin ) {
-				e_new[i] = emin ;
+				if (e_new[i]  < emin ) {
+					e_new[i] = emin ;
+				}
 			}
-		}
-	});
-	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
-			// Change iterator X 1
-			const int i = iterator;
-			e_new[i] = e_old[i] - Real_t(0.5) * delvc[i] * (p_old[i] + q_old[i])
-						        																																																																																						 + Real_t(0.5) * work[i];
+		});
+		if(sizeB < highB) {
+			for(int iterator=sizeB; iterator<highB; iterator++) {
+				// Change iterator X 1
+				const int i = iterator;
+				e_new[i] = e_old[i] - Real_t(0.5) * delvc[i] * (p_old[i] + q_old[i])
+						        																																																																																														 + Real_t(0.5) * work[i];
 
-			if (e_new[i]  < emin ) {
-				e_new[i] = emin ;
+				if (e_new[i]  < emin ) {
+					e_new[i] = emin ;
+				}
 			}
 		}
 	}
 #else
 	for (Index_t i = 0 ; i < length ; ++i) {
 		e_new[i] = e_old[i] - Real_t(0.5) * delvc[i] * (p_old[i] + q_old[i])
-        																																																																																				 + Real_t(0.5) * work[i];
+        																																																																																												 + Real_t(0.5) * work[i];
 
 		if (e_new[i]  < emin ) {
 			e_new[i] = emin ;
@@ -3034,168 +3019,83 @@ void CalcEnergyForElems(Real_t* p_new, Real_t* e_new, Real_t* q_new,
 
 	CalcPressureForElems(pHalfStep, bvc, pbvc, e_new, compHalfStep, vnewc,
 			pmin, p_cut, eosvmax, length, regElemList);
+	{
+		// Change highB
+		const int highB = length;
+		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		int lowB = 0;
+		int chunks = (int) (highB/tile);
+		int sizeB = tile * chunks;
+		parallel_looper(lowB, chunks, true, [&](int outterI) {
+			const int start = outterI*tile;
+			for(int iterator=start; iterator<(start+tile); iterator++) {
+				// Change iterator X 1
+				const int i = iterator;
+				Real_t vhalf = Real_t(1.) / (Real_t(1.) + compHalfStep[i]) ;
 
-	// Change highB
-	highB = length;
-	tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
-	lowB = 0;
-	chunks = (int) (highB/tile);
-	sizeB = tile * chunks;
-	hcpp_tiling = (sizeB==chunks) ? true : false;
-	iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
-			// Change iterator X 1
-			const int i = iterator;
-			Real_t vhalf = Real_t(1.) / (Real_t(1.) + compHalfStep[i]) ;
+				if ( delvc[i] > Real_t(0.) ) {
+					q_new[i] /* = qq_old[i] = ql_old[i] */ = Real_t(0.) ;
+				}
+				else {
+					Real_t ssc = ( pbvc[i] * e_new[i]
+					                               + vhalf * vhalf * bvc[i] * pHalfStep[i] ) / rho0 ;
 
-			if ( delvc[i] > Real_t(0.) ) {
-				q_new[i] /* = qq_old[i] = ql_old[i] */ = Real_t(0.) ;
-			}
-			else {
-				Real_t ssc = ( pbvc[i] * e_new[i]
-				                               + vhalf * vhalf * bvc[i] * pHalfStep[i] ) / rho0 ;
+					if ( ssc <= Real_t(.1111111e-36) ) {
+						ssc = Real_t(.3333333e-18) ;
+					} else {
+						ssc = SQRT(ssc) ;
+					}
 
-				if ( ssc <= Real_t(.1111111e-36) ) {
-					ssc = Real_t(.3333333e-18) ;
-				} else {
-					ssc = SQRT(ssc) ;
+					q_new[i] = (ssc*ql_old[i] + qq_old[i]) ;
 				}
 
-				q_new[i] = (ssc*ql_old[i] + qq_old[i]) ;
-			}
+				e_new[i] = e_new[i] + Real_t(0.5) * delvc[i]
+				                                          * (  Real_t(3.0)*(p_old[i]     + q_old[i])
+				                                        		  - Real_t(4.0)*(pHalfStep[i] + q_new[i])) ;
+				e_new[i] += Real_t(0.5) * work[i];
 
-			e_new[i] = e_new[i] + Real_t(0.5) * delvc[i]
-			                                          * (  Real_t(3.0)*(p_old[i]     + q_old[i])
-			                                        		  - Real_t(4.0)*(pHalfStep[i] + q_new[i])) ;
-			e_new[i] += Real_t(0.5) * work[i];
-
-			if (FABS(e_new[i]) < e_cut) {
-				e_new[i] = Real_t(0.)  ;
+				if (FABS(e_new[i]) < e_cut) {
+					e_new[i] = Real_t(0.)  ;
+				}
+				if (     e_new[i]  < emin ) {
+					e_new[i] = emin ;
+				}
 			}
-			if (     e_new[i]  < emin ) {
-				e_new[i] = emin ;
-			}
-		}
-	});
-	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
-			// Change iterator X 1
-			const int i = iterator;
-			Real_t vhalf = Real_t(1.) / (Real_t(1.) + compHalfStep[i]) ;
+		});
+		if(sizeB < highB) {
+			for(int iterator=sizeB; iterator<highB; iterator++) {
+				// Change iterator X 1
+				const int i = iterator;
+				Real_t vhalf = Real_t(1.) / (Real_t(1.) + compHalfStep[i]) ;
 
-			if ( delvc[i] > Real_t(0.) ) {
-				q_new[i] /* = qq_old[i] = ql_old[i] */ = Real_t(0.) ;
-			}
-			else {
-				Real_t ssc = ( pbvc[i] * e_new[i]
-				                               + vhalf * vhalf * bvc[i] * pHalfStep[i] ) / rho0 ;
+				if ( delvc[i] > Real_t(0.) ) {
+					q_new[i] /* = qq_old[i] = ql_old[i] */ = Real_t(0.) ;
+				}
+				else {
+					Real_t ssc = ( pbvc[i] * e_new[i]
+					                               + vhalf * vhalf * bvc[i] * pHalfStep[i] ) / rho0 ;
 
-				if ( ssc <= Real_t(.1111111e-36) ) {
-					ssc = Real_t(.3333333e-18) ;
-				} else {
-					ssc = SQRT(ssc) ;
+					if ( ssc <= Real_t(.1111111e-36) ) {
+						ssc = Real_t(.3333333e-18) ;
+					} else {
+						ssc = SQRT(ssc) ;
+					}
+
+					q_new[i] = (ssc*ql_old[i] + qq_old[i]) ;
 				}
 
-				q_new[i] = (ssc*ql_old[i] + qq_old[i]) ;
-			}
+				e_new[i] = e_new[i] + Real_t(0.5) * delvc[i]
+				                                          * (  Real_t(3.0)*(p_old[i]     + q_old[i])
+				                                        		  - Real_t(4.0)*(pHalfStep[i] + q_new[i])) ;
+				e_new[i] += Real_t(0.5) * work[i];
 
-			e_new[i] = e_new[i] + Real_t(0.5) * delvc[i]
-			                                          * (  Real_t(3.0)*(p_old[i]     + q_old[i])
-			                                        		  - Real_t(4.0)*(pHalfStep[i] + q_new[i])) ;
-			e_new[i] += Real_t(0.5) * work[i];
-
-			if (FABS(e_new[i]) < e_cut) {
-				e_new[i] = Real_t(0.)  ;
-			}
-			if (     e_new[i]  < emin ) {
-				e_new[i] = emin ;
-			}// Body of Loop
-		}
-	}
-
-	CalcPressureForElems(p_new, bvc, pbvc, e_new, compression, vnewc,
-			pmin, p_cut, eosvmax, length, regElemList);
-
-	// Change highB
-	highB = length;
-	tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
-	lowB = 0;
-	chunks = (int) (highB/tile);
-	sizeB = tile * chunks;
-	hcpp_tiling = (sizeB==chunks) ? true : false;
-	iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
-			// Change iterator X 1
-			const int i = iterator;
-			const Real_t sixth = Real_t(1.0) / Real_t(6.0) ;
-			Index_t elem = regElemList[i];
-			Real_t q_tilde ;
-
-			if (delvc[i] > Real_t(0.)) {
-				q_tilde = Real_t(0.) ;
-			}
-			else {
-				Real_t ssc = ( pbvc[i] * e_new[i]
-				                               + vnewc[elem] * vnewc[elem] * bvc[i] * p_new[i] ) / rho0 ;
-
-				if ( ssc <= Real_t(.1111111e-36) ) {
-					ssc = Real_t(.3333333e-18) ;
-				} else {
-					ssc = SQRT(ssc) ;
+				if (FABS(e_new[i]) < e_cut) {
+					e_new[i] = Real_t(0.)  ;
 				}
-
-				q_tilde = (ssc*ql_old[i] + qq_old[i]) ;
-			}
-
-			e_new[i] = e_new[i] - (  Real_t(7.0)*(p_old[i]     + q_old[i])
-					- Real_t(8.0)*(pHalfStep[i] + q_new[i])
-					+ (p_new[i] + q_tilde)) * delvc[i]*sixth ;
-
-			if (FABS(e_new[i]) < e_cut) {
-				e_new[i] = Real_t(0.)  ;
-			}
-			if (     e_new[i]  < emin ) {
-				e_new[i] = emin ;
-			}
-		}
-	});
-	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
-			// Change iterator X 1
-			const int i = iterator;
-			const Real_t sixth = Real_t(1.0) / Real_t(6.0) ;
-			Index_t elem = regElemList[i];
-			Real_t q_tilde ;
-
-			if (delvc[i] > Real_t(0.)) {
-				q_tilde = Real_t(0.) ;
-			}
-			else {
-				Real_t ssc = ( pbvc[i] * e_new[i]
-				                               + vnewc[elem] * vnewc[elem] * bvc[i] * p_new[i] ) / rho0 ;
-
-				if ( ssc <= Real_t(.1111111e-36) ) {
-					ssc = Real_t(.3333333e-18) ;
-				} else {
-					ssc = SQRT(ssc) ;
-				}
-
-				q_tilde = (ssc*ql_old[i] + qq_old[i]) ;
-			}
-
-			e_new[i] = e_new[i] - (  Real_t(7.0)*(p_old[i]     + q_old[i])
-					- Real_t(8.0)*(pHalfStep[i] + q_new[i])
-					+ (p_new[i] + q_tilde)) * delvc[i]*sixth ;
-
-			if (FABS(e_new[i]) < e_cut) {
-				e_new[i] = Real_t(0.)  ;
-			}
-			if (     e_new[i]  < emin ) {
-				e_new[i] = emin ;
+				if (     e_new[i]  < emin ) {
+					e_new[i] = emin ;
+				}// Body of Loop
 			}
 		}
 	}
@@ -3203,56 +3103,143 @@ void CalcEnergyForElems(Real_t* p_new, Real_t* e_new, Real_t* q_new,
 	CalcPressureForElems(p_new, bvc, pbvc, e_new, compression, vnewc,
 			pmin, p_cut, eosvmax, length, regElemList);
 
-	// Change highB
-	highB = length;
-	tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
-	lowB = 0;
-	chunks = (int) (highB/tile);
-	sizeB = tile * chunks;
-	hcpp_tiling = (sizeB==chunks) ? true : false;
-	iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
-			// Change iterator X 1
-			const int i = iterator;
-			Index_t elem = regElemList[i];
+	{
+		// Change highB
+		const int highB = length;
+		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		int lowB = 0;
+		int chunks = (int) (highB/tile);
+		int sizeB = tile * chunks;
+		parallel_looper(lowB, chunks, true, [&](int outterI) {
+			const int start = outterI*tile;
+			for(int iterator=start; iterator<(start+tile); iterator++) {
+				// Change iterator X 1
+				const int i = iterator;
+				const Real_t sixth = Real_t(1.0) / Real_t(6.0) ;
+				Index_t elem = regElemList[i];
+				Real_t q_tilde ;
 
-			if ( delvc[i] <= Real_t(0.) ) {
-				Real_t ssc = ( pbvc[i] * e_new[i]
-				                               + vnewc[elem] * vnewc[elem] * bvc[i] * p_new[i] ) / rho0 ;
+				if (delvc[i] > Real_t(0.)) {
+					q_tilde = Real_t(0.) ;
+				}
+				else {
+					Real_t ssc = ( pbvc[i] * e_new[i]
+					                               + vnewc[elem] * vnewc[elem] * bvc[i] * p_new[i] ) / rho0 ;
 
-				if ( ssc <= Real_t(.1111111e-36) ) {
-					ssc = Real_t(.3333333e-18) ;
-				} else {
-					ssc = SQRT(ssc) ;
+					if ( ssc <= Real_t(.1111111e-36) ) {
+						ssc = Real_t(.3333333e-18) ;
+					} else {
+						ssc = SQRT(ssc) ;
+					}
+
+					q_tilde = (ssc*ql_old[i] + qq_old[i]) ;
 				}
 
-				q_new[i] = (ssc*ql_old[i] + qq_old[i]) ;
+				e_new[i] = e_new[i] - (  Real_t(7.0)*(p_old[i]     + q_old[i])
+						- Real_t(8.0)*(pHalfStep[i] + q_new[i])
+						+ (p_new[i] + q_tilde)) * delvc[i]*sixth ;
 
-				if (FABS(q_new[i]) < q_cut) q_new[i] = Real_t(0.) ;
+				if (FABS(e_new[i]) < e_cut) {
+					e_new[i] = Real_t(0.)  ;
+				}
+				if (     e_new[i]  < emin ) {
+					e_new[i] = emin ;
+				}
+			}
+		});
+		if(sizeB < highB) {
+			for(int iterator=sizeB; iterator<highB; iterator++) {
+				// Change iterator X 1
+				const int i = iterator;
+				const Real_t sixth = Real_t(1.0) / Real_t(6.0) ;
+				Index_t elem = regElemList[i];
+				Real_t q_tilde ;
+
+				if (delvc[i] > Real_t(0.)) {
+					q_tilde = Real_t(0.) ;
+				}
+				else {
+					Real_t ssc = ( pbvc[i] * e_new[i]
+					                               + vnewc[elem] * vnewc[elem] * bvc[i] * p_new[i] ) / rho0 ;
+
+					if ( ssc <= Real_t(.1111111e-36) ) {
+						ssc = Real_t(.3333333e-18) ;
+					} else {
+						ssc = SQRT(ssc) ;
+					}
+
+					q_tilde = (ssc*ql_old[i] + qq_old[i]) ;
+				}
+
+				e_new[i] = e_new[i] - (  Real_t(7.0)*(p_old[i]     + q_old[i])
+						- Real_t(8.0)*(pHalfStep[i] + q_new[i])
+						+ (p_new[i] + q_tilde)) * delvc[i]*sixth ;
+
+				if (FABS(e_new[i]) < e_cut) {
+					e_new[i] = Real_t(0.)  ;
+				}
+				if (     e_new[i]  < emin ) {
+					e_new[i] = emin ;
+				}
 			}
 		}
-	});
-	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
-			// Change iterator X 1
-			const int i = iterator;
-			Index_t elem = regElemList[i];
+	}
 
-			if ( delvc[i] <= Real_t(0.) ) {
-				Real_t ssc = ( pbvc[i] * e_new[i]
-				                               + vnewc[elem] * vnewc[elem] * bvc[i] * p_new[i] ) / rho0 ;
+	CalcPressureForElems(p_new, bvc, pbvc, e_new, compression, vnewc,
+			pmin, p_cut, eosvmax, length, regElemList);
 
-				if ( ssc <= Real_t(.1111111e-36) ) {
-					ssc = Real_t(.3333333e-18) ;
-				} else {
-					ssc = SQRT(ssc) ;
+	{
+		// Change highB
+		const int highB = length;
+		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		int lowB = 0;
+		int chunks = (int) (highB/tile);
+		int sizeB = tile * chunks;
+		parallel_looper(lowB, chunks, true, [&](int outterI) {
+			const int start = outterI*tile;
+			for(int iterator=start; iterator<(start+tile); iterator++) {
+				// Change iterator X 1
+				const int i = iterator;
+				Index_t elem = regElemList[i];
+
+				if ( delvc[i] <= Real_t(0.) ) {
+					Real_t ssc = ( pbvc[i] * e_new[i]
+					                               + vnewc[elem] * vnewc[elem] * bvc[i] * p_new[i] ) / rho0 ;
+
+					if ( ssc <= Real_t(.1111111e-36) ) {
+						ssc = Real_t(.3333333e-18) ;
+					} else {
+						ssc = SQRT(ssc) ;
+					}
+
+					q_new[i] = (ssc*ql_old[i] + qq_old[i]) ;
+
+					if (FABS(q_new[i]) < q_cut) q_new[i] = Real_t(0.) ;
 				}
+			}
+		});
+		if(sizeB < highB) {
+			for(int iterator=sizeB; iterator<highB; iterator++) {
+				// Change iterator X 1
+				const int i = iterator;
+				Index_t elem = regElemList[i];
 
-				q_new[i] = (ssc*ql_old[i] + qq_old[i]) ;
+				if ( delvc[i] <= Real_t(0.) ) {
+					Real_t ssc = ( pbvc[i] * e_new[i]
+					                               + vnewc[elem] * vnewc[elem] * bvc[i] * p_new[i] ) / rho0 ;
 
-				if (FABS(q_new[i]) < q_cut) q_new[i] = Real_t(0.) ;
+					if ( ssc <= Real_t(.1111111e-36) ) {
+						ssc = Real_t(.3333333e-18) ;
+					} else {
+						ssc = SQRT(ssc) ;
+					}
+
+					q_new[i] = (ssc*ql_old[i] + qq_old[i]) ;
+
+					if (FABS(q_new[i]) < q_cut) q_new[i] = Real_t(0.) ;
+				}
 			}
 		}
 	}
@@ -3272,15 +3259,14 @@ void CalcSoundSpeedForElems(Real_t *ss,
 {
 	// Change highB
 	const int highB = len;
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
-	const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-	int iterator = 0;
-	parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-		const int start = outterI*chunks;
-		for(; iterator<(tile*chunks); iterator++) {
+	parallel_looper(lowB, chunks, true, [&](int outterI) {
+		const int start = outterI*tile;
+		for(int iterator=start; iterator<(start+tile); iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			int elem = regElemList[i];
@@ -3296,7 +3282,7 @@ void CalcSoundSpeedForElems(Real_t *ss,
 		}
 	});
 	if(sizeB < highB) {
-		for(iterator=sizeB; iterator<highB; iterator++) {
+		for(int iterator=sizeB; iterator<highB; iterator++) {
 			// Change iterator X 1
 			const int i = iterator;
 			int elem = regElemList[i];
@@ -3355,15 +3341,14 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 			{
 				// Change highB
 				const int highB = numElemReg;
-				const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+				const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+				const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 				const int lowB = 0;
 				const int chunks = (int) (highB/tile);
 				const int sizeB = tile * chunks;
-				const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-				int iterator = 0;
-				parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-					const int start = outterI*chunks;
-					for(; iterator<(tile*chunks); iterator++) {
+				parallel_looper(lowB, chunks, true, [&](int outterI) {
+					const int start = outterI*tile;
+					for(int iterator=start; iterator<(start+tile); iterator++) {
 						// Change iterator X 1
 						const int i = iterator;
 						int elem = regElemList[i];
@@ -3383,7 +3368,7 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 					}
 				});
 				if(sizeB < highB) {
-					for(iterator=sizeB; iterator<highB; iterator++) {
+					for(int iterator=sizeB; iterator<highB; iterator++) {
 						// Change iterator X 1
 						const int i = iterator;
 						int elem = regElemList[i];
@@ -3410,15 +3395,14 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 				{
 					// Change highB
 					const int highB = numElemReg;
-					const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+					const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+					const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 					const int lowB = 0;
 					const int chunks = (int) (highB/tile);
 					const int sizeB = tile * chunks;
-					const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-					int iterator = 0;
-					parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-						const int start = outterI*chunks;
-						for(; iterator<(tile*chunks); iterator++) {
+					parallel_looper(lowB, chunks, true, [&](int outterI) {
+						const int start = outterI*tile;
+						for(int iterator=start; iterator<(start+tile); iterator++) {
 							// Change iterator X 1
 							const int i = iterator;
 							int elem = regElemList[i];
@@ -3428,7 +3412,7 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 						}
 					});
 					if(sizeB < highB) {
-						for(iterator=sizeB; iterator<highB; iterator++) {
+						for(int iterator=sizeB; iterator<highB; iterator++) {
 							// Change iterator X 1
 							const int i = iterator;
 							int elem = regElemList[i];
@@ -3452,15 +3436,14 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 				{
 					// Change highB
 					const int highB = numElemReg;
-					const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+					const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+					const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 					const int lowB = 0;
 					const int chunks = (int) (highB/tile);
 					const int sizeB = tile * chunks;
-					const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-					int iterator = 0;
-					parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-						const int start = outterI*chunks;
-						for(; iterator<(tile*chunks); iterator++) {
+					parallel_looper(lowB, chunks, true, [&](int outterI) {
+						const int start = outterI*tile;
+						for(int iterator=start; iterator<(start+tile); iterator++) {
 							// Change iterator X 1
 							const int i = iterator;
 							int elem = regElemList[i];
@@ -3472,7 +3455,7 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 						}
 					});
 					if(sizeB < highB) {
-						for(iterator=sizeB; iterator<highB; iterator++) {
+						for(int iterator=sizeB; iterator<highB; iterator++) {
 							// Change iterator X 1
 							const int i = iterator;
 							int elem = regElemList[i];
@@ -3509,15 +3492,14 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 	{
 		// Change highB
 		const int highB = numElemReg;
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
-		const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-		int iterator = 0;
-		parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-			const int start = outterI*chunks;
-			for(; iterator<(tile*chunks); iterator++) {
+		parallel_looper(lowB, chunks, true, [&](int outterI) {
+			const int start = outterI*tile;
+			for(int iterator=start; iterator<(start+tile); iterator++) {
 				// Change iterator X 1
 				const int i = iterator;
 				int elem = regElemList[i];
@@ -3527,7 +3509,7 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 			}
 		});
 		if(sizeB < highB) {
-			for(iterator=sizeB; iterator<highB; iterator++) {
+			for(int iterator=sizeB; iterator<highB; iterator++) {
 				// Change iterator X 1
 				const int i = iterator;
 				int elem = regElemList[i];
@@ -3582,15 +3564,14 @@ void ApplyMaterialPropertiesForElems(Domain& domain, Real_t vnew[])
 			// Bound the updated relative volumes with eosvmin/max
 			// Change highB
 			const int highB = numElem;
-			const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+			const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+			const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 			const int lowB = 0;
 			const int chunks = (int) (highB/tile);
 			const int sizeB = tile * chunks;
-			const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-			int iterator = 0;
-			parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-				const int start = outterI*chunks;
-				for(; iterator<(tile*chunks); iterator++) {
+			parallel_looper(lowB, chunks, true, [&](int outterI) {
+				const int start = outterI*tile;
+				for(int iterator=start; iterator<(start+tile); iterator++) {
 					// Change iterator X 1
 					const int i = iterator;
 					if (eosvmin != Real_t(0.)) {
@@ -3625,7 +3606,7 @@ void ApplyMaterialPropertiesForElems(Domain& domain, Real_t vnew[])
 				}
 			});
 			if(sizeB < highB) {
-				for(iterator=sizeB; iterator<highB; iterator++) {
+				for(int iterator=sizeB; iterator<highB; iterator++) {
 					// Change iterator X 1
 					const int i = iterator;
 					if (eosvmin != Real_t(0.)) {
@@ -3691,15 +3672,14 @@ void UpdateVolumesForElems(Real_t *vnew, Real_t *v,
 #ifdef LAMBDA_FOR_SMALL_LOOP
 		// Change highB
 		const int highB = length;
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
-		const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-		int iterator = 0;
-		parallel_looper(lowB, chunks, hcpp_tiling, true, [&](int outterI) {
-			const int start = outterI*chunks;
-			for(; iterator<(tile*chunks); iterator++) {
+		parallel_looper(lowB, chunks, true, [&](int outterI) {
+			const int start = outterI*tile;
+			for(int iterator=start; iterator<(start+tile); iterator++) {
 				// Change iterator X 1
 				const int i = iterator;
 				Real_t tmpV = vnew[i] ;
@@ -3711,7 +3691,7 @@ void UpdateVolumesForElems(Real_t *vnew, Real_t *v,
 			}
 		});
 		if(sizeB < highB) {
-			for(iterator=sizeB; iterator<highB; iterator++) {
+			for(int iterator=sizeB; iterator<highB; iterator++) {
 				// Change iterator X 1
 				const int i = iterator;
 				Real_t tmpV = vnew[i] ;
@@ -3784,15 +3764,14 @@ void CalcCourantConstraintForElems(Int_t length,
 
 		// Change highB
 		const int highB = length;
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
-		const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-		int iterator = 0;
-		parallel_looper(lowB, chunks, hcpp_tiling, parallelize, [&](int outterI) {
-			const int start = outterI*chunks;
-			for(; iterator<(tile*chunks); iterator++) {
+		parallel_looper(lowB, chunks, parallelize, [&](int outterI) {
+			const int start = outterI*tile;
+			for(int iterator=start; iterator<(start+tile); iterator++) {
 				// Change iterator X 1
 				const int i = iterator;
 				Index_t indx = regElemlist[i] ;
@@ -3824,7 +3803,7 @@ void CalcCourantConstraintForElems(Int_t length,
 			}
 		});
 		if(sizeB < highB) {
-			for(iterator=sizeB; iterator<highB; iterator++) {
+			for(int iterator=sizeB; iterator<highB; iterator++) {
 				// Change iterator X 1
 				const int i = iterator;
 				Index_t indx = regElemlist[i] ;
@@ -3893,15 +3872,14 @@ void CalcHydroConstraintForElems(Int_t length,
 		Index_t thread_num = 0;
 		// Change highB
 		const int highB = length;
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0 || HC_WORKERS == 1) ? highB : (LAMBDA_LOOP_TILING_FACTOR * HC_WORKERS);
+		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
+		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
-		const bool hcpp_tiling = (sizeB==chunks) ? true : false;
-		int iterator = 0;
-		parallel_looper(lowB, chunks, hcpp_tiling, parallelize, [&](int outterI) {
-			const int start = outterI*chunks;
-			for(; iterator<(tile*chunks); iterator++) {
+		parallel_looper(lowB, chunks, parallelize, [&](int outterI) {
+			const int start = outterI*tile;
+			for(int iterator=start; iterator<(start+tile); iterator++) {
 				// Change iterator X 1
 				const int i = iterator;
 				Index_t indx = regElemlist[i] ;
@@ -3925,7 +3903,7 @@ void CalcHydroConstraintForElems(Int_t length,
 			}
 		});
 		if(sizeB < highB) {
-			for(iterator=sizeB; iterator<highB; iterator++) {
+			for(int iterator=sizeB; iterator<highB; iterator++) {
 				// Change iterator X 1
 				const int i = iterator;
 				Index_t indx = regElemlist[i] ;
@@ -4046,8 +4024,6 @@ int main(int argc, char *argv[])
 
 #if !USE_HABANERO_UPC
 	upcxx::init(&argc, &argv);
-#else
-	HC_WORKERS = hcpp::numWorkers();
 #endif
 
 	// PLOTTY SUPPORT
