@@ -292,7 +292,7 @@ void InitStressTermsForElems(Real_t *p, Real_t *q,
 	// Change highB
 	const int highB = numElem;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -552,7 +552,7 @@ void IntegrateStressForElems( Index_t *nodelist,
 	// Change highB
 	const int highB = numElem;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -888,7 +888,7 @@ void CalcFBHourglassForceForElems( Domain &domain,
 	// Change highB
 	const int highB = numElem;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -1242,7 +1242,7 @@ void CalcHourglassControlForElems(Domain& domain,
 	// Change highB
 	const int highB = numElem;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -1402,7 +1402,7 @@ static inline void CalcForceForNodes(Domain& domain)
 	// Change highB
 	const int highB = numNode;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -1468,7 +1468,7 @@ void CalcAccelerationForNodes(Real_t *xdd, Real_t *ydd, Real_t *zdd,
 	// Change highB
 	const int highB = numNode;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -1513,7 +1513,7 @@ void ApplyAccelerationBoundaryConditionsForNodes(Domain& domain)
 		// Change highB
 		const int highB = numNodeBC;
 		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		const int tile = factor == 0 ? 1 : factor;
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
@@ -1576,7 +1576,7 @@ void CalcVelocityForNodes(Real_t *xd,  Real_t *yd,  Real_t *zd,
 	// Change highB
 	const int highB = numNode;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -1632,7 +1632,7 @@ void CalcPositionForNodes(Real_t *x,  Real_t *y,  Real_t *z,
 	// Change highB
 	const int highB = numNode;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -1967,7 +1967,7 @@ void CalcKinematicsForElems( Index_t *nodelist,
 	// Change highB
 	const int highB = numElem;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -2129,7 +2129,7 @@ void CalcLagrangeElements(Domain& domain, Real_t* vnew)
 		// Change highB
 		const int highB = numElem;
 		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		const int tile = factor == 0 ? 1 : factor;
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
@@ -2205,7 +2205,7 @@ void CalcMonotonicQGradientsForElems(Domain& domain, Real_t vnew[])
 	// Change highB
 	const int highB = numElem;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -2517,7 +2517,7 @@ void CalcMonotonicQRegionForElems(Domain &domain, Int_t r,
 	// Change highB
 	const int highB = domain.regElemSize(r);
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -2906,7 +2906,7 @@ void CalcPressureForElems(Real_t* p_new, Real_t* bvc,
 	// Change highB
 	const int highB = length;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -2976,7 +2976,7 @@ void CalcEnergyForElems(Real_t* p_new, Real_t* e_new, Real_t* q_new,
 		// Change highB
 		const int highB = length;
 		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		const int tile = factor == 0 ? 1 : factor;
 		int lowB = 0;
 		int chunks = (int) (highB/tile);
 		int sizeB = tile * chunks;
@@ -3023,7 +3023,7 @@ void CalcEnergyForElems(Real_t* p_new, Real_t* e_new, Real_t* q_new,
 		// Change highB
 		const int highB = length;
 		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		const int tile = factor == 0 ? 1 : factor;
 		int lowB = 0;
 		int chunks = (int) (highB/tile);
 		int sizeB = tile * chunks;
@@ -3107,7 +3107,7 @@ void CalcEnergyForElems(Real_t* p_new, Real_t* e_new, Real_t* q_new,
 		// Change highB
 		const int highB = length;
 		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		const int tile = factor == 0 ? 1 : factor;
 		int lowB = 0;
 		int chunks = (int) (highB/tile);
 		int sizeB = tile * chunks;
@@ -3193,7 +3193,7 @@ void CalcEnergyForElems(Real_t* p_new, Real_t* e_new, Real_t* q_new,
 		// Change highB
 		const int highB = length;
 		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		const int tile = factor == 0 ? 1 : factor;
 		int lowB = 0;
 		int chunks = (int) (highB/tile);
 		int sizeB = tile * chunks;
@@ -3260,7 +3260,7 @@ void CalcSoundSpeedForElems(Real_t *ss,
 	// Change highB
 	const int highB = len;
 	const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-	const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+	const int tile = factor == 0 ? 1 : factor;
 	const int lowB = 0;
 	const int chunks = (int) (highB/tile);
 	const int sizeB = tile * chunks;
@@ -3342,7 +3342,7 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 				// Change highB
 				const int highB = numElemReg;
 				const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-				const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+				const int tile = factor == 0 ? 1 : factor;
 				const int lowB = 0;
 				const int chunks = (int) (highB/tile);
 				const int sizeB = tile * chunks;
@@ -3396,7 +3396,7 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 					// Change highB
 					const int highB = numElemReg;
 					const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-					const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+					const int tile = factor == 0 ? 1 : factor;
 					const int lowB = 0;
 					const int chunks = (int) (highB/tile);
 					const int sizeB = tile * chunks;
@@ -3437,7 +3437,7 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 					// Change highB
 					const int highB = numElemReg;
 					const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-					const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+					const int tile = factor == 0 ? 1 : factor;
 					const int lowB = 0;
 					const int chunks = (int) (highB/tile);
 					const int sizeB = tile * chunks;
@@ -3493,7 +3493,7 @@ void EvalEOSForElems(Domain& domain, Real_t *vnewc,
 		// Change highB
 		const int highB = numElemReg;
 		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		const int tile = factor == 0 ? 1 : factor;
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
@@ -3565,7 +3565,7 @@ void ApplyMaterialPropertiesForElems(Domain& domain, Real_t vnew[])
 			// Change highB
 			const int highB = numElem;
 			const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-			const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+			const int tile = factor == 0 ? 1 : factor;
 			const int lowB = 0;
 			const int chunks = (int) (highB/tile);
 			const int sizeB = tile * chunks;
@@ -3673,7 +3673,7 @@ void UpdateVolumesForElems(Real_t *vnew, Real_t *v,
 		// Change highB
 		const int highB = length;
 		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		const int tile = factor == 0 ? 1 : factor;
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
@@ -3765,7 +3765,7 @@ void CalcCourantConstraintForElems(Int_t length,
 		// Change highB
 		const int highB = length;
 		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		const int tile = factor == 0 ? 1 : factor;
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
@@ -3873,7 +3873,7 @@ void CalcHydroConstraintForElems(Int_t length,
 		// Change highB
 		const int highB = length;
 		const int factor = (int) (LAMBDA_LOOP_TILING_FACTOR * highB);
-		const int tile = (LAMBDA_LOOP_TILING_FACTOR == 0) ? highB : (factor == 0 ? 1 : factor);
+		const int tile = factor == 0 ? 1 : factor;
 		const int lowB = 0;
 		const int chunks = (int) (highB/tile);
 		const int sizeB = tile * chunks;
