@@ -20,6 +20,7 @@ MPI_LIB = /opt/local/lib
 #CXX = clang++ -DUSE_OMP=0
 #MPICXX = mpicxx -DUSE_OMP=0
 UPCXX = $(CXX) -DUSE_OMP=0
+#UPCXX = $(CXX) -DUSE_OMP=1 -fopenmp
 #UPCXX = mpicxx -DUSE_OMP=1 -fopenmp
 
 SOURCES2.0 = \

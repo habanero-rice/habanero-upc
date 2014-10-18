@@ -1,6 +1,6 @@
 #PBS -q debug
 #PBS -l mppwidth=24
-#PBS -l walltime=00:30:00
+#PBS -l walltime=00:10:00
 #PBS -N pbbs
 #PBS -j oe
 #PBS -V
@@ -22,7 +22,7 @@ foreach  hc ( 1 4 8 12 )
   set j=0
   while ( $j < ${ITER} )
     # 2 UPC tasks / node. 1 UPC task per socket. Habanero workers varies like 1, 4, 8, 12
-    aprun -n ${UPC_TASK} -S1 -d 12  ${EXE} ${BENCH_OPTIONS} >>& ${LOGFILE}
+    aprun -n ${UPC_TASK} -S 1 -d 12  ${EXE} ${BENCH_OPTIONS} >>& ${LOGFILE}
     set j=`expr ${j} + 1`
   end
   cat $LOGFILE | sed '/resources: utime/d' > "${LOGDIR}.t"

@@ -1,19 +1,19 @@
 #PBS -q debug
 #PBS -l mppwidth=6144
-#PBS -l walltime=00:30:00
+#PBS -l walltime=00:05:00
 #PBS -N pbbs
 #PBS -j oe
 #PBS -V
 
 cd $PBS_O_WORKDIR
 
-setenv GASNET_MAX_SEGSIZE '256MB'
+setenv GASNET_MAX_SEGSIZE '512MB'
 
 set ITER=6
 set UPC_TASK=512
 set EXE="./lulesh-hcupc"
 set LOGDIR="/global/homes/v/vivekk/logs"
-set BENCH_OPTIONS="-p -i 100 -s 38"
+set BENCH_OPTIONS="-p -i 100 -s 30"
 
 foreach  hc ( 1 4 8 12 )
   setenv OCR_CONFIG "/global/u2/v/vivekk/pgas14/habanero-upc/machine-configs/mach-hcupc-commMaster-${hc}w.cfg"

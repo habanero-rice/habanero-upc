@@ -1,6 +1,6 @@
 #PBS -q debug
 #PBS -l mppwidth=2592
-#PBS -l walltime=00:30:00
+#PBS -l walltime=00:10:00
 #PBS -N pbbs
 #PBS -j oe
 #PBS -V
