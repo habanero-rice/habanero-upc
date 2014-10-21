@@ -166,7 +166,8 @@ Additional BSD Notice
 
 //#define LAMBDA_FOR_SMALL_LOOP 1
 //#define LAMBDA_LOOP_TILING_FACTOR  0
-#define LAMBDA_LOOP_TILING_FACTOR  0.01
+//#define LAMBDA_LOOP_TILING_FACTOR  0.01
+#define LAMBDA_LOOP_TILING_FACTOR  0.005
 
 /*********************************/
 /* Data structure implementation */

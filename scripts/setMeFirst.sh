@@ -4,6 +4,7 @@ export HCPP_BASE= < PATH TO HCPP CHECKED-OUT FROM GITHUB >
 export UPCPP_ROOT= < PATH TO UPCXX INSTALLATION DIRECTORY >
 export PATH=<PATH TO MPI INSTALLATION DIRECTORY>/bin:$PATH
 export LD_LIBRARY_PATH=<PATH TO MPI INSTALLATION DIRECTORY>/lib:$LD_LIBRARY_PATH
+export TBB_MALLOC=<PATH TO DIRECTORY CONTAINING libtbbmalloc_proxy.so>
 export CXX=mpicxx
 export CC=gcc
 
@@ -29,4 +30,6 @@ export HCLIB_ROOT=${BASE}/others/hclib/hcupc/hclib-install
 export OCR_ROOT=${BASE}/others/ocr/hcupc/ocr-install
 export OCR_CONFIG=${BASE}/machine-configs/mach-hcupc-commMaster-1w.cfg
 export LD_LIBRARY_PATH=${OCR_ROOT}/lib:${HCLIB_ROOT}/lib:${HABANERO_UPC_ROOT}/lib:$LD_LIBRARY_PATH
-
+if [ ! -z "${TBB_MALLOC}" ]; then
+   export LD_LIBRARY_PATH=${TBB_MALLOC}:$LD_LIBRARY_PATH
+fi
