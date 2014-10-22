@@ -19,30 +19,17 @@ void fib(int n, int* res)
 
 int main(int argc, char **argv)
 {
-  // Test asyncCopy
-  global_ptr<double> src, dst;
-  size_t sz = 1024*1024;
-  src = allocate<double>((myrank()+1)%THREADS, sz);
-  assert(src != NULL);
-  dst = allocate<double>(myrank(), sz);
-  assert(dst != NULL);
-  src[sz-1] = 123456.789 + (double)myrank();
-  dst[sz-1] = 0.0;
-  printf("Rank %d starts asyncCopy...\n", MYTHREAD);
-  barrier();
-
   auto f = [](){ std::cout << MYTHREAD << ":" << get_worker_id_hc() << "--> Hello World !!!!!" << std::endl;};
   auto f_fib = [](){ int r; fib(20, &r); std::cout << MYTHREAD << ":" << get_worker_id_hc() << "--> Fib = " << r << std::endl;};
-  auto f_fib_1 = [](){ int r; fib(20, &r); std::cout << MYTHREAD << ":" << get_worker_id_hc() << "--> Fib_1 = " << r << std::endl;};
   hcpp::finish_spmd([=]() {
-    hcpp::async([=]() { f_fib(); });
-    hcpp::asyncCopy(src, dst, sz);
-    if(MYTHREAD==0) hcpp::asyncAt(1,[=](){f_fib_1();});
+    for(int i=0; i<THREADS; i++) {
+      if(i != MYTHREAD) {
+        hcpp::asyncAt(i,[=](){f_fib();});
+        hcpp::asyncAt(i,[=](){f();});
+      }
+    }
   });
   cout <<MYTHREAD <<": Out of finish_spmd" << endl;
  
-  printf("Rank %d finishes asyncCopy, src[%lu] = %f, dst[%lu] = %f\n",
-         myrank(), sz-1, src[sz-1].get(), sz-1, dst[sz-1].get());
-
   return 0;
 }

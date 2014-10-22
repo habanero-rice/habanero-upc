@@ -20,6 +20,16 @@ AC_PROG_CXX
 AC_PROG_LIBTOOL
 AC_LANG(C++)
 
+### ENABLE DISTRIBUTED WORK_STEALING SUPPORT 
+AC_ARG_ENABLE([distWS],
+[  --enable-distWS     Dist. W.S. support (Default is false)],
+[case "${enableval}" in
+  yes) distWS=true ;;
+  no)  distWS=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-distWS]) ;;
+esac],[distWS=false])
+AM_CONDITIONAL([DIST_WS], [test x$distWS = xtrue])
+
 # Variable substitutions.
 AC_SUBST([ac_aux_dir])
 AC_SUBST([abs_top_srcdir])

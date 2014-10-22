@@ -2,18 +2,32 @@
 
 BASE=`pwd`
 
-echo "================== BUILDING OCR ==================="
-cd ${BASE}/others/ocr/hcupc
-./install.sh
+echo "USAGE: HCR_OPTS=<configure flags> ./install.sh <[1 -->to build without dependencies]>"
 
-echo "================== BUILDING HCLIB ==================="
-cd ${BASE}/others/hclib/hcupc
-./install.sh
+#Flag to build without dependencies (i.e. just build HabaneroUPC++ and not OCR and HCLib)
+withoutDependencies=1
+# by default build everything (OCR, HCLib and HabaneroUPC++)
+all=1
+if [ $# -ge 1 ]; then
+  if [ $1 -eq ${withoutDependencies} ]; then
+    all=0
+  fi
+fi
 
-echo "================== BUILDING HCPP ==================="
-cd ${HCPP_BASE}
-./clobber.sh
-./installwithupc.sh
+if [ $all -eq 1 ]; then
+  echo "================== BUILDING OCR ==================="
+  cd ${BASE}/others/ocr/hcupc
+  ./install.sh
+
+  echo "================== BUILDING HCLIB ==================="
+  cd ${BASE}/others/hclib/hcupc
+  ./install.sh
+
+  echo "================== BUILDING HCPP ==================="
+  cd ${HCPP_BASE}
+  ./clobber.sh
+  ./installwithupc.sh
+fi
 
 echo "================== BUILDING HABANERO_UPC=============="
 cd $BASE

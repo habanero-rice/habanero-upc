@@ -11,7 +11,7 @@ AUX_DIST = \
 
 library_includedir=$(includedir)
 
-library_include_HEADERS = inc/hcupc_spmd.h inc/hcupc_spmd-main.h inc/hcupc_spmd-util.h inc/hcupc_spmd.mak
+library_include_HEADERS = inc/hcupc_spmd.h inc/hcupc_spmd-main.h inc/hcupc_spmd-util.h inc/hcupc_spmd.mak inc/hcupc_spmd_common_methods.h
 
 MAINTAINERCLEANFILES = Makefile.in \
 	aclocal.m4 \

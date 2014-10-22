@@ -12,13 +12,26 @@ fi
 
 BASE=`pwd`
 
-cd $BASE/others/ocr/hcupc
-./clobber.sh
+echo "USAGE: ./clobber.sh <[1 -->do not clean dependencies]>"
 
-cd $BASE/others/hclib/hcupc
-./clobber.sh
+#Flag to clean without dependencies (i.e. just clean HabaneroUPC++ and not OCR and HCLib)
+withoutDependencies=1
+# by default clean everything (OCR, HCLib and HabaneroUPC++)
+all=1
+if [ $# -eq 1 ]; then
+  if [ $1 -eq ${withoutDependencies} ]; then
+    all=0
+  fi
+fi
 
-cd $BASE
+if [ $all -eq 1 ]; then
+  cd $BASE/others/ocr/hcupc
+  ./clobber.sh
+
+  cd $BASE/others/hclib/hcupc
+  ./clobber.sh
+  cd $BASE
+fi
 
 rm -Rf compileTree
 rm -Rf config/* autom4te.cache aclocal.m4 configure COPYING depcomp config.log config.status libtool
