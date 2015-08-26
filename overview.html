@@ -82,7 +82,7 @@ forasync3D(loop, [capture_list]() {
 </p>
 
 <p>
-The different types of supported <STRONG>inter-place</STRONG> asynchronous tasks (extended from <a href="http://www.cs.berkeley.edu/~kamil/papers/ipdps14.pdf">UPC++</a>) are as following:
+The different types of supported <STRONG>inter-place</STRONG> asynchronous tasks currently supported are as following:
 </p>
  
 <p>
@@ -92,12 +92,12 @@ asyncAt(place, [capture_list]() {
 });
 
 // asynchronous remote copy
-asyncCopy(global_ptr<T> src, global_ptr<T> dst, size_t count, DDF* ddf=NULL);</code></PRE>
+asyncCopy(global_ptr<T> src, global_ptr<T> dst, size_t count, DDF* ddf=NULL);
 
 // asynchronous task free to execute anywhere in the cluster through distributed work-stealing
 asyncAny([capture_list]() {
   S6;
-});
+});</code></PRE>
 </p>
 
 <p>
