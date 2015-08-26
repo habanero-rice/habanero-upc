@@ -1,0 +1,43 @@
+=============================================
+HABANERO-UPC LIBRARY INSTALLATION PROCEDURE
+=============================================
+
+1) Checkout Habanero-C++ library (Do not build, just checkout):
+
+git clone https://github.com/habanero-rice/hcpp.git
+
+  	NOTE: HabaneroUPC++ is not supported currently with the OCR backend of Habanero-C++.
+
+2) Set the paths correctly in ./scripts/setup.sh
+	NOTE: UPC++ installation guide: https://bitbucket.org/upcxx/upcxx/wiki/Installing%20UPC++
+
+3) cd scripts
+
+4) source ./setup.sh
+
+5) cd ..
+
+6) ./install.sh
+
+=============================================
+BUILDING TESTCASES
+=============================================
+
+1) Tests are inside "./test" 
+
+2) Each testcase has its own Makefile. Simply use "make" to build testcases
+
+=============================================
+EXECUTING TESTCASES
+=============================================
+
+1) Set the intra-place workers correctly:
+	export HCPP_WORKERS=N
+
+2) For using HPT in Habanero-C++, use the README.md in Habanero-C++ repository
+
+3) Execute the testcase using mpirun as :
+
+mpirun -np 2 ./test
+
+
