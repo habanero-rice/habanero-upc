@@ -2,13 +2,17 @@
 HABANERO-UPC LIBRARY INSTALLATION PROCEDURE
 =============================================
 
-1) Checkout Habanero-C++ library (Do not build, just checkout):
+1a) Checkout Habanero-C++ library (Do not build, just checkout):
 
 git clone https://github.com/habanero-rice/hcpp.git
 
   	NOTE: HabaneroUPC++ is not supported currently with the OCR backend of Habanero-C++.
+1b) Checkout HabaneroUPC++ library
 
-2) Set the paths correctly in ./scripts/setup.sh
+git clone https://github.com/habanero-rice/habanero-upc.git
+cd habanero-upc
+
+2) Set the paths correctly in /scripts/setup.sh
 	NOTE: UPC++ installation guide: https://bitbucket.org/upcxx/upcxx/wiki/Installing%20UPC++
 
 3) cd scripts
