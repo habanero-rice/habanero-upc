@@ -34,7 +34,6 @@
 Just use the include directive in your program to import the interfaces and import the Habanero-UPC++ namespace</p>
 
 <pre><code>#include "hcupc-spmd.h"
-using namespace hcpp;</code></pre>
 
 <h1>Compiling Habanero-UPC++ program </h1>
 
@@ -55,20 +54,7 @@ test.o: test.cpp
 <h1>Executing Habanero-UPC++ program </h1>
 
 <p>
-First set the work-stealing configuration file, which declares the total number of worker threads. The directory <code>machine-configs</code> contains the templates for different number of worker threads. For using 10 worker threads at each Habanero-UPC++ execution place, the environment variable is set as:
-</p>
-
-<p>
-<PRE><code>export OCR_CONFIG=<absolute path>/habanero-upc/machine-configs/mach-hcupc-commMaster-10w.cfg</code></PRE>
-</p>
-
-<p>
-The executable <code>test</code> can be run using <code>mpirun</code> as:
-</p>
-
-<p>
-<PRE><code>mpirun -np < Total Places > ./test < Command line input to test ></code></PRE>
-</p>
+See the <code>README</code> file in <code>habanero-upc</code> git repository.</p>
 
       </section>
     </div>
