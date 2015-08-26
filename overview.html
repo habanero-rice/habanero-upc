@@ -94,7 +94,8 @@ asyncAt(place, [capture_list]() {
 // asynchronous remote copy
 asyncCopy(global_ptr<T> src, global_ptr<T> dst, size_t count, DDF* ddf=NULL);
 
-// asynchronous task free to execute anywhere in the cluster through distributed work-stealing
+// asynchronous task free to execute anywhere 
+// in the cluster through distributed work-stealing
 asyncAny([capture_list]() {
   S6;
 });</code></PRE>
