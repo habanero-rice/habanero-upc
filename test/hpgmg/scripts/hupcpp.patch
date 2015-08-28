@@ -1,0 +1,759 @@
+diff -r 8e12be1ebd60 finite-volume/source/defines.h
+--- a/finite-volume/source/defines.h	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/defines.h	Thu Aug 27 23:19:39 2015 -0500
+@@ -36,4 +36,15 @@
+ #define memberof upcxx_memberof
+ #endif
+ 
++#ifdef USE_HUPCPP
++#define DONT_USE_HUPCPP_FLAG	assert("HabaneroUPC++ cannot be combined with OpenMP" && 0);
++#define HUPCPP_WORKERS 		hupcpp::numWorkers()
++//static const float FORASYNC_LAMBDA_TILING_FACTOR = getenv("FORASYNC_LAMBDA_TILING_FACTOR") ? atof(getenv("FORASYNC_LAMBDA_TILING_FACTOR")) : 0;
++#define FORASYNC_LAMBDA_TILING_FACTOR 0
++#define FORASYNC_SEQ_LIMIT 0
++//static const int FORASYNC_SEQ_LIMIT = getenv("FORASYNC_SEQ_LIMIT") ? atoi(getenv("FORASYNC_SEQ_LIMIT")) : 0;
++#else
++#define DONT_USE_HUPCPP_FLAG
+ #endif
++
++#endif
+diff -r 8e12be1ebd60 finite-volume/source/hpgmg.c
+--- a/finite-volume/source/hpgmg.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/hpgmg.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -72,13 +72,22 @@
+   int OMP_Nested = 0;
+ 
+ #ifdef USE_UPCXX
++#ifdef USE_HUPCPP
++  hupcpp::init(&argc, &argv);
++#else
+   upcxx::init(&argc, &argv);
++  if(MYTHREAD == 0) {
++    printf("\n-----\n");
++    printf("mkdir timedrun fake\n\n");
++  }
++#endif
+   num_tasks = THREADS;
+   my_rank = MYTHREAD;
+   if (my_rank == 0) printf("Using UPCXX P2P SHM: Total %d processes\n", num_tasks);
+ #endif
+ 
+ #ifdef _OPENMP
++DONT_USE_HUPCPP_FLAG
+ #pragma omp parallel 
+   {
+ #pragma omp master
+@@ -89,6 +98,9 @@
+   }
+ #endif
+     
++#ifdef USE_HUPCPP
++  OMP_Threads = HUPCPP_WORKERS;
++#endif
+ 
+ #ifdef USE_MPI
+   int    actual_threading_model = -1;
+@@ -98,6 +110,9 @@
+     //requested_threading_model = MPI_THREAD_SERIALIZED;
+     //requested_threading_model = MPI_THREAD_MULTIPLE;
+   //MPI_Init(&argc, &argv);
++  #ifdef USE_HUPCPP
++      requested_threading_model = MPI_THREAD_FUNNELED;
++  #endif
+   #ifdef _OPENMP
+       requested_threading_model = MPI_THREAD_FUNNELED;
+     //requested_threading_model = MPI_THREAD_SERIALIZED;
+@@ -139,8 +154,12 @@
+     MPI_Finalize();
+ #endif
+ #ifdef USE_UPCXX
++#ifdef USE_HUPCPP
++    hupcpp::finalize();
++#else
+     upcxx::finalize();
+ #endif
++#endif
+     exit(0);
+   }
+ 
+@@ -150,8 +169,12 @@
+     MPI_Finalize();
+ #endif
+ #ifdef USE_UPCXX
++#ifdef USE_HUPCPP
++    hupcpp::finalize();
++#else
+     upcxx::finalize();
+ #endif
++#endif
+     exit(0);
+   }
+   
+@@ -161,8 +184,12 @@
+     MPI_Finalize();
+ #endif
+ #ifdef USE_UPCXX
++#ifdef USE_HUPCPP
++    hupcpp::finalize();
++#else
+     upcxx::finalize();
+ #endif
++#endif
+     exit(0);
+   }
+ 
+@@ -194,6 +221,11 @@
+     #ifdef USE_MPI
+     MPI_Finalize();
+     #endif
++    #ifdef USE_HUPCPP
++    hupcpp::finalize();
++    #else
++    upcxx::finalize();
++    #endif
+     exit(0);
+   }
+   //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+@@ -309,7 +341,7 @@
+     if(doTiming)HPM_Stop("FMGSolve()");
+     #endif
+   }
+-  MGPrintTiming(all_grids); // don't include the error check in the timing results
++  double perf = MGPrintTiming(all_grids); // don't include the error check in the timing results
+ 
+   MPI_Barrier(MPI_COMM_WORLD);
+ 
+@@ -326,6 +358,21 @@
+   #endif
+   MPI_Finalize();
+   #endif
++
++  int me = MYTHREAD;
++  #ifdef USE_HUPCPP
++  hupcpp::finalize();
++  #else
++  upcxx::finalize();
++  #endif
++  if(me == 0) {
++    printf("\n============================ Tabulate Statistics ============================\n");
++    printf("Performance\n");
++    printf("%f\n",perf);
++    printf("=============================================================================\n");
++    printf("===== TEST PASSED in 0.0 msec =====\n");
++  }
++
+   //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+   return(0);
+ }
+diff -r 8e12be1ebd60 finite-volume/source/level.c
+--- a/finite-volume/source/level.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/level.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -1121,6 +1121,7 @@
+   int omp_nested  = 0;
+ 
+ #ifdef _OPENMP
++  DONT_USE_HUPCPP_FLAG
+ #pragma omp parallel 
+   {
+ #pragma omp master
+@@ -1131,6 +1132,10 @@
+   }
+ #endif
+ 
++#ifdef USE_HUPCPP
++  omp_threads = HUPCPP_WORKERS;
++#endif
++
+   if(box_ghosts < stencil_get_radius() ){
+     if(my_rank==0)fprintf(stderr,"ghosts(%d) must be >= stencil_get_radius(%d)\n",box_ghosts,stencil_get_radius());
+     exit(0);
+diff -r 8e12be1ebd60 finite-volume/source/level.h
+--- a/finite-volume/source/level.h	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/level.h	Thu Aug 27 23:19:39 2015 -0500
+@@ -12,10 +12,15 @@
+ #include <string.h>
+ #include <math.h>
+ 
++#ifdef USE_HUPCPP
++#include "hcupc_spmd.h"
++using namespace upcxx;
++#else
+ #ifdef USE_UPCXX
+ #include <upcxx.h>
+ using namespace upcxx;
+ #endif
++#endif
+ 
+ #include "defines.h"
+ 
+@@ -78,9 +83,8 @@
+     global_ptr<double>        *global_recv_buffers;    // allocate buffer in global address
+     global_ptr<double>        *global_send_buffers;    // allocate buffer in global address
+     global_ptr<double>        *global_match_buffers;   // record neighbor's recv buffer address
+-
+     event            *copy_e;                   //   events used for p2p synchronization      
+-    event            *data_e;                   //   events used for p2p synchronization 
++    event            *data_e;                   //   events used for p2p synchronization
+ #endif
+     double ** __restrict__     recv_buffers;	//   MPI recv buffer for each neighbor...  recv_buffers[neighbor][ recv_sizes[neighbor] ]
+     double ** __restrict__     send_buffers;	//   MPI send buffer for each neighbor...  send_buffers[neighbor][ send_sizes[neighbor] ]
+diff -r 8e12be1ebd60 finite-volume/source/mg.c
+--- a/finite-volume/source/mg.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/mg.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -53,7 +53,7 @@
+ 
+ 
+ //----------------------------------------------------------------------------------------------------------------------------------------------------
+-void MGPrintTiming(mg_type *all_grids){
++double MGPrintTiming(mg_type *all_grids){
+   int level,num_levels = all_grids->num_levels;
+   uint64_t _timeStart=CycleTime();sleep(1);uint64_t _timeEnd=CycleTime();
+   double SecondsPerCycle = (double)1.0/(double)(_timeEnd-_timeStart);
+@@ -65,7 +65,7 @@
+   for(level=0;level<num_levels;level++)max_level_timers(all_grids->levels[level]);
+   #endif
+ 
+-  if(all_grids->my_rank!=0)return;
++  if(all_grids->my_rank!=0)return 0;
+   double time,total;
+           printf("\n\n");
+           printf("                          ");for(level=0;level<(num_levels  );level++){printf("%12d ",level);}printf("\n");
+@@ -126,6 +126,7 @@
+   double numDOF = (double)all_grids->levels[0]->dim.i*(double)all_grids->levels[0]->dim.j*(double)all_grids->levels[0]->dim.k;
+   printf( "            Performance   %12.3e DOF/s\n",numDOF/(scale*(double)all_grids->cycles.MGSolve));
+   printf("\n\n");fflush(stdout);
++  return (numDOF/(scale*(double)all_grids->cycles.MGSolve));
+ }
+ 
+ 
+diff -r 8e12be1ebd60 finite-volume/source/mg.h
+--- a/finite-volume/source/mg.h	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/mg.h	Thu Aug 27 23:19:39 2015 -0500
+@@ -37,7 +37,7 @@
+ void  MGBuild(mg_type *all_grids, level_type *fine_grid, double a, double b, int minCoarseGridDim);
+ void  MGSolve(mg_type *all_grids, int u_id, int F_id, double a, double b, double desired_mg_norm);
+ void FMGSolve(mg_type *all_grids, int u_id, int F_id, double a, double b, double desired_mg_norm);
+-void MGPrintTiming(mg_type *all_grids);
++double MGPrintTiming(mg_type *all_grids);
+ void MGResetTimers(mg_type *all_grids);
+ //------------------------------------------------------------------------------------------------------------------------------
+ #endif
+diff -r 8e12be1ebd60 finite-volume/source/operators.7pt.c
+--- a/finite-volume/source/operators.7pt.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators.7pt.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -25,21 +25,33 @@
+   #define PRAGMA_THREAD_ACROSS_BLOCKS(    level,b,nb     )    MyPragma(omp parallel for private(b) if(nb>1) schedule(static,1)                     )
+   #define PRAGMA_THREAD_ACROSS_BLOCKS_SUM(level,b,nb,bsum)    MyPragma(omp parallel for private(b) if(nb>1) schedule(static,1) reduction(  +:bsum) )
+   #define PRAGMA_THREAD_ACROSS_BLOCKS_MAX(level,b,nb,bmax)    
++  #define PRAGMA_THREAD_ACROSS_LOOP(b)			      MyPragma(omp parallel for private(b))
++  #define PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_3(i, j, k)	      MyPragma(omp parallel for private(i, j, k) collapse(3))
++  #define PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_2	              MyPragma(omp parallel for schedule(static,1) collapse(2))
+   #warning not threading norm() calculations due to issue with XL/C, _Pragma, and reduction(max:bmax)
+   #else
+   #define PRAGMA_THREAD_ACROSS_BLOCKS(    level,b,nb     )    MyPragma(omp parallel for private(b) if(nb>1) schedule(static,1)                     )
+   #define PRAGMA_THREAD_ACROSS_BLOCKS_SUM(level,b,nb,bsum)    MyPragma(omp parallel for private(b) if(nb>1) schedule(static,1) reduction(  +:bsum) )
+   #define PRAGMA_THREAD_ACROSS_BLOCKS_MAX(level,b,nb,bmax)    MyPragma(omp parallel for private(b) if(nb>1) schedule(static,1) reduction(max:bmax) )
++  #define PRAGMA_THREAD_ACROSS_LOOP(b)			      MyPragma(omp parallel for private(b))
++  #define PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_3(i, j, k)	      MyPragma(omp parallel for private(i, j, k) collapse(3))
++  #define PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_2	              MyPragma(omp parallel for schedule(static,1) collapse(2))
+   #endif
+ #elif _OPENMP // older OpenMP versions don't support the max reduction clause
+   #warning Threading max reductions requires OpenMP 3.1 (July 2011).  Please upgrade your compiler.                                                           
+   #define PRAGMA_THREAD_ACROSS_BLOCKS(    level,b,nb     )    MyPragma(omp parallel for private(b) if(nb>1) schedule(static,1)                     )
+   #define PRAGMA_THREAD_ACROSS_BLOCKS_SUM(level,b,nb,bsum)    MyPragma(omp parallel for private(b) if(nb>1) schedule(static,1) reduction(  +:bsum) )
++  #define PRAGMA_THREAD_ACROSS_LOOP(b)			      MyPragma(omp parallel for private(b))
++  #define PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_3(i, j, k)	      MyPragma(omp parallel for private(i, j, k) collapse(3))
++  #define PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_2	              MyPragma(omp parallel for schedule(static,1) collapse(2))
+   #define PRAGMA_THREAD_ACROSS_BLOCKS_MAX(level,b,nb,bmax)    
+ #else // flat MPI should not define any threading...
+   #define PRAGMA_THREAD_ACROSS_BLOCKS(    level,b,nb     )    
+   #define PRAGMA_THREAD_ACROSS_BLOCKS_SUM(level,b,nb,bsum)    
+   #define PRAGMA_THREAD_ACROSS_BLOCKS_MAX(level,b,nb,bmax)    
++  #define PRAGMA_THREAD_ACROSS_LOOP(b)
++  #define PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_3(i, j, k)	
++  #define PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_2	       
+ #endif
+ //------------------------------------------------------------------------------------------------------------------------------
+ // fix... make #define...
+diff -r 8e12be1ebd60 finite-volume/source/operators.old/matmul.c
+--- a/finite-volume/source/operators.old/matmul.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators.old/matmul.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -16,9 +16,7 @@
+ 
+   uint64_t _timeStart = CycleTime();
+   // FIX... rather than performing an all_reduce on the essentially symmetric [G,g], do the all_reduce on the upper triangle and then duplicate (saves BW)
+-  #ifdef _OPENMP
+-  #pragma omp parallel for schedule(static,1) collapse(2)
+-  #endif
++  PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_2
+   for(mm=0;mm<rows;mm++){
+   for(nn=0;nn<cols;nn++){
+   if(nn>=mm){ // upper triangular
+diff -r 8e12be1ebd60 finite-volume/source/operators.old/symgs.c
+--- a/finite-volume/source/operators.old/symgs.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators.old/symgs.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -12,9 +12,7 @@
+ 
+     // now do ghosts communication-avoiding smooths on each box...
+     uint64_t _timeStart = CycleTime();
+-    #ifdef _OPENMP
+-    #pragma omp parallel for
+-    #endif
++    PRAGMA_THREAD_ACROSS_LOOP(box)
+     for(box=0;box<level->num_my_boxes;box++){
+       int i,j,k;
+       const int ghosts = level->box_ghosts;
+diff -r 8e12be1ebd60 finite-volume/source/operators/exchange_boundary.c
+--- a/finite-volume/source/operators/exchange_boundary.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators/exchange_boundary.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -66,6 +66,30 @@
+   // loop through MPI send buffers and post Isend's...
+   _timeStart = CycleTime();
+ 
++#ifdef USE_HUPCPP
++  hupcpp::start_finish();
++  PRAGMA_THREAD_ACROSS_LOOP(n)
++  for(n=0;n<level->exchange_ghosts[justFaces].num_sends;n++){
++	  global_ptr<double> p1, p2;
++	  p1 = level->exchange_ghosts[justFaces].global_send_buffers[n];
++	  p2 = level->exchange_ghosts[justFaces].global_match_buffers[n];
++	  if (!is_memory_shared_with(level->exchange_ghosts[justFaces].send_ranks[n])) {
++		  event* copy_e = &level->exchange_ghosts[justFaces].copy_e[n];
++		  hupcpp::asyncComm([=]() {
++			  upcxx::async_copy(p1, p2, level->exchange_ghosts[justFaces].send_sizes[n],copy_e);
++		  });
++
++		  int rid = level->exchange_ghosts[justFaces].send_ranks[n];
++		  int cnt = level->exchange_ghosts[justFaces].send_sizes[n];
++		  int pos = level->exchange_ghosts[justFaces].send_match_pos[n];
++		  event* data_e = &level->exchange_ghosts[justFaces].data_e[n];
++		  hupcpp::asyncComm([=]() {
++			  async_after(rid, copy_e, data_e)(cb_unpack, level->my_rank, pos, cnt, id, level->depth, justFaces);
++		  });
++	  }
++  }
++  hupcpp::end_finish();
++#else
+   for(n=0;n<level->exchange_ghosts[justFaces].num_sends;n++){
+     global_ptr<double> p1, p2;
+     p1 = level->exchange_ghosts[justFaces].global_send_buffers[n];
+@@ -79,9 +103,9 @@
+       int pos = level->exchange_ghosts[justFaces].send_match_pos[n];
+       event* data_e = &level->exchange_ghosts[justFaces].data_e[n];
+       async_after(rid, copy_e, data_e)(cb_unpack, level->my_rank, pos, cnt, id, level->depth, justFaces);
+-    } 
++    }
+   }
+-
++#endif
+   _timeEnd = CycleTime();
+   level->cycles.ghostZone_send += (_timeEnd-_timeStart);
+ 
+diff -r 8e12be1ebd60 finite-volume/source/operators/interpolation_pc.c
+--- a/finite-volume/source/operators/interpolation_pc.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators/interpolation_pc.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -128,6 +128,27 @@
+  
+   // loop through MPI send buffers and post Isend's...
+   _timeStart = CycleTime();
++#ifdef USE_HUPCPP
++  hupcpp::start_finish();
++  PRAGMA_THREAD_ACROSS_LOOP(n)
++  for(n=0;n<level_c->interpolation.num_sends;n++){
++	  global_ptr<double> p1, p2;
++	  p1 = level_c->interpolation.global_send_buffers[n];
++	  p2 = level_c->interpolation.global_match_buffers[n];
++	  if (!is_memory_shared_with(level_c->interpolation.send_ranks[n])) {
++		  event* copy_e = &level_c->interpolation.copy_e[n];
++		  hupcpp::asyncComm([=]() {
++			  upcxx::async_copy(p1, p2, level_c->interpolation.send_sizes[n], copy_e);
++		  });
++	  } else {
++		  int rid = level_c->interpolation.send_ranks[n];
++		  int pos = level_c->interpolation.send_match_pos[n];
++		  size_t nth = MAX_NBGS* id_f; nth = 0;
++		  int *p = (int *) level_c->interpolation.match_rflag[n]; *(p+nth+pos) = 1;
++	  }
++  }
++  hupcpp::end_finish();
++#else
+ #ifdef USE_UPCXX
+   int nshm = 0;
+   for(n=0;n<level_c->interpolation.num_sends;n++){
+@@ -146,6 +167,8 @@
+     }
+   }
+ #endif
++#endif
++
+   _timeEnd = CycleTime();
+   level_f->cycles.interpolation_send += (_timeEnd-_timeStart);
+ 
+@@ -160,7 +183,25 @@
+   _timeStart = CycleTime();
+ 
+ #ifdef USE_UPCXX
++#ifdef USE_HUPCPP
++  hupcpp::start_finish();
++  PRAGMA_THREAD_ACROSS_LOOP(n)
++  for(n=0;n<level_c->interpolation.num_sends;n++){
++	  int rid = level_c->interpolation.send_ranks[n];
+ 
++	  if (!is_memory_shared_with(rid)) {
++		  int cnt = level_c->interpolation.send_sizes[n];
++		  int pos = level_c->interpolation.send_match_pos[n];
++		  event* copy_e = &level_c->interpolation.copy_e[n];
++		  event* data_e = &level_c->interpolation.data_e[n];
++		  hupcpp::asyncComm([=]() {
++			  async_after(rid, copy_e, data_e)(cb_unpack_int, level_c->my_rank, pos,
++					  level_f->depth, id_f, prescale_f);
++		  });
++	  }
++  }
++  hupcpp::end_finish();
++#else
+   for(n=0;n<level_c->interpolation.num_sends;n++){
+     int rid = level_c->interpolation.send_ranks[n];
+ 
+@@ -173,7 +214,7 @@
+                   level_f->depth, id_f, prescale_f);
+     }
+   }
+-
++#endif
+   async_wait();
+ 
+   if (level_f->interpolation.num_recvs > 0) {
+diff -r 8e12be1ebd60 finite-volume/source/operators/interpolation_pl.c
+--- a/finite-volume/source/operators/interpolation_pl.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators/interpolation_pl.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -110,6 +110,28 @@
+  
+   // loop through MPI send buffers and post Isend's...
+   _timeStart = CycleTime();
++#ifdef USE_HUPCPP
++  hupcpp::start_finish();
++  PRAGMA_THREAD_ACROSS_LOOP(n)
++  for(n=0;n<level_c->interpolation.num_sends;n++){
++	  global_ptr<double> p1, p2;
++	  p1 = level_c->interpolation.global_send_buffers[n];
++	  p2 = level_c->interpolation.global_match_buffers[n];
++
++	  if (!is_memory_shared_with(level_c->interpolation.send_ranks[n])) {
++		  event* copy_e = &level_c->interpolation.copy_e[n];
++		  hupcpp::asyncComm([=]() {
++			  upcxx::async_copy(p1, p2, level_c->interpolation.send_sizes[n], copy_e);
++		  });
++	  } else {
++		  int rid = level_c->interpolation.send_ranks[n];
++		  int pos = level_c->interpolation.send_match_pos[n];
++		  size_t nth = MAX_NBGS* id_f; nth = 0;
++		  int *p = (int *) level_c->interpolation.match_rflag[n]; *(p+nth+pos) = 1;
++	  }
++  }
++  hupcpp::end_finish();
++#else
+ #ifdef USE_UPCXX
+   int nshm = 0;
+   for(n=0;n<level_c->interpolation.num_sends;n++){
+@@ -129,6 +151,7 @@
+     }
+   }
+ #endif
++#endif
+   _timeEnd = CycleTime();
+   level_f->cycles.interpolation_send += (_timeEnd-_timeStart);
+ 
+@@ -143,7 +166,25 @@
+   _timeStart = CycleTime();
+ 
+ #ifdef USE_UPCXX
++#ifdef USE_HUPCPP
++  hupcpp::start_finish();
++  PRAGMA_THREAD_ACROSS_LOOP(n)
++  for(n=0;n<level_c->interpolation.num_sends;n++){
++	  int rid = level_c->interpolation.send_ranks[n];
+ 
++	  if (!is_memory_shared_with(rid)) {
++		  int cnt = level_c->interpolation.send_sizes[n];
++		  int pos = level_c->interpolation.send_match_pos[n];
++		  event* copy_e = &level_c->interpolation.copy_e[n];
++		  event* data_e = &level_c->interpolation.data_e[n];
++		  hupcpp::asyncComm([=]() {
++			  async_after(rid, copy_e, data_e)(cb_unpack_int, level_c->my_rank, pos,
++					  level_f->depth, id_f, prescale_f);
++		  });
++	  }
++  }
++  hupcpp::end_finish();
++#else
+   for(n=0;n<level_c->interpolation.num_sends;n++){
+     int rid = level_c->interpolation.send_ranks[n];
+ 
+@@ -156,6 +197,7 @@
+                   level_f->depth, id_f, prescale_f);
+     }
+   }
++#endif
+ 
+   async_wait();
+ 
+diff -r 8e12be1ebd60 finite-volume/source/operators/interpolation_pq.c
+--- a/finite-volume/source/operators/interpolation_pq.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators/interpolation_pq.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -129,6 +129,30 @@
+   // loop through MPI send buffers and post Isend's...
+   _timeStart = CycleTime();
+ #ifdef USE_UPCXX
++#ifdef USE_HUPCPP
++  hupcpp::start_finish();
++  PRAGMA_THREAD_ACROSS_LOOP(n)
++  for(n=0;n<level_c->interpolation.num_sends;n++){
++	  global_ptr<double> p1, p2;
++	  p1 = level_c->interpolation.global_send_buffers[n];
++	  p2 = level_c->interpolation.global_match_buffers[n];
++
++	  if (!is_memory_shared_with(level_c->interpolation.send_ranks[n])) {
++		  event* copy_e = &level_c->interpolation.copy_e[n];
++		  hupcpp::asyncComm([=]() {
++			  upcxx::async_copy(p1, p2, level_c->interpolation.send_sizes[n], copy_e);
++		  });
++	  } else {
++		  int rid = level_c->interpolation.send_ranks[n];
++		  int pos = level_c->interpolation.send_match_pos[n];
++		  size_t nth = MAX_NBGS* id_f; nth = 0;
++		  int *p = (int *) level_c->interpolation.match_rflag[n]; *(p+nth+pos) = 1;
++		  nshm++;
++	  }
++  }
++  hupcpp::end_finish();
++#else
++#ifdef USE_UPCXX
+   int nshm = 0;
+   for(n=0;n<level_c->interpolation.num_sends;n++){
+     global_ptr<double> p1, p2;
+@@ -147,6 +171,7 @@
+     }
+   }
+ #endif
++#endif
+   _timeEnd = CycleTime();
+   level_f->cycles.interpolation_send += (_timeEnd-_timeStart);
+  
+@@ -162,7 +187,25 @@
+   _timeStart = CycleTime();
+ 
+ #ifdef USE_UPCXX
++#ifdef USE_HUPCPP
++  hupcpp::start_finish();
++  PRAGMA_THREAD_ACROSS_LOOP(n)
++  for(n=0;n<level_c->interpolation.num_sends;n++){
++	  int rid = level_c->interpolation.send_ranks[n];
+ 
++	  if (!is_memory_shared_with(rid)) {
++		  int cnt = level_c->interpolation.send_sizes[n];
++		  int pos = level_c->interpolation.send_match_pos[n];
++		  event* copy_e = &level_c->interpolation.copy_e[n];
++		  event* data_e = &level_c->interpolation.data_e[n];
++		  hupcpp::asyncComm([=]() {
++			  async_after(rid, copy_e, data_e)(cb_unpack_int, level_c->my_rank, pos,
++					  level_f->depth, id_f, prescale_f);
++		  });
++	  }
++  }
++  hupcpp::end_finish();
++#else
+   for(n=0;n<level_c->interpolation.num_sends;n++){
+     int rid = level_c->interpolation.send_ranks[n];
+ 
+@@ -175,7 +218,7 @@
+                   level_f->depth, id_f, prescale_f);
+     }
+   }
+-
++#endif
+   async_wait();
+ 
+   if (level_f->interpolation.num_recvs > 0) {
+diff -r 8e12be1ebd60 finite-volume/source/operators/matmul.c
+--- a/finite-volume/source/operators/matmul.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators/matmul.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -16,9 +16,7 @@
+ 
+   uint64_t _timeStart = CycleTime();
+   // FIX... rather than performing an all_reduce on the essentially symmetric [G,g], do the all_reduce on the upper triangle and then duplicate (saves BW)
+-  #ifdef _OPENMP
+-  #pragma omp parallel for schedule(static,1) collapse(2)
+-  #endif
++  PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_2
+   for(mm=0;mm<rows;mm++){
+   for(nn=0;nn<cols;nn++){
+   if(nn>=mm){ // upper triangular
+diff -r 8e12be1ebd60 finite-volume/source/operators/problem.p4.c
+--- a/finite-volume/source/operators/problem.p4.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators/problem.p4.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -88,9 +88,7 @@
+     const int   dim_j = lbox->dim;
+     const int   dim_k = lbox->dim;
+ 
+-    #ifdef _OPENMP
+-    #pragma omp parallel for private(k,j,i) collapse(3)
+-    #endif
++    PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_3(k, j, i)
+     for(k=0;k<=dim_k;k++){ // include high face
+     for(j=0;j<=dim_j;j++){ // include high face
+     for(i=0;i<=dim_i;i++){ // include high face
+diff -r 8e12be1ebd60 finite-volume/source/operators/problem.p6.c
+--- a/finite-volume/source/operators/problem.p6.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators/problem.p6.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -102,9 +102,7 @@
+     const int   dim_i = lbox->dim;
+     const int   dim_j = lbox->dim;
+     const int   dim_k = lbox->dim;
+-    #ifdef _OPENMP
+-    #pragma omp parallel for private(k,j,i) collapse(3)
+-    #endif
++    PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_3(k, j, i)
+     for(k=0;k<=dim_k;k++){ // include high face
+     for(j=0;j<=dim_j;j++){ // include high face
+     for(i=0;i<=dim_i;i++){ // include high face
+diff -r 8e12be1ebd60 finite-volume/source/operators/problem.sine.c
+--- a/finite-volume/source/operators/problem.sine.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators/problem.sine.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -77,9 +77,7 @@
+     const int   dim_i = level->my_boxes[box].dim;
+     const int   dim_j = level->my_boxes[box].dim;
+     const int   dim_k = level->my_boxes[box].dim;
+-    #ifdef _OPENMP
+-    #pragma omp parallel for private(k,j,i) collapse(3)
+-    #endif
++    PRAGMA_THREAD_ACROSS_LOOP_COLLAPSE_3(k, j, i)
+     for(k=0;k<=dim_k;k++){ // include high face
+     for(j=0;j<=dim_j;j++){ // include high face
+     for(i=0;i<=dim_i;i++){ // include high face
+diff -r 8e12be1ebd60 finite-volume/source/operators/restriction.c
+--- a/finite-volume/source/operators/restriction.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators/restriction.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -170,6 +170,30 @@
+  
+   // loop through MPI send buffers and post Isend's...
+   _timeStart = CycleTime();
++#ifdef USE_HUPCPP
++  hupcpp::start_finish();
++  PRAGMA_THREAD_ACROSS_LOOP(n)
++  for(n=0;n<level_f->restriction[restrictionType].num_sends;n++) {
++	  global_ptr<double> p1, p2;
++	  p1 = level_f->restriction[restrictionType].global_send_buffers[n];
++	  p2 = level_f->restriction[restrictionType].global_match_buffers[n];
++
++	  if (!is_memory_shared_with(level_f->restriction[restrictionType].send_ranks[n])) {
++		  event* copy_e = &level_f->restriction[restrictionType].copy_e[n];
++		  hupcpp::asyncComm([=]() {
++			  upcxx::async_copy(p1, p2, level_f->restriction[restrictionType].send_sizes[n], copy_e);
++		  });
++	  } else {
++		  int rid = level_f->restriction[restrictionType].send_ranks[n];
++		  int pos = level_f->restriction[restrictionType].send_match_pos[n];
++		  size_t nth = MAX_NBGS*id_c;
++
++		  int *p = (int *) level_f->restriction[restrictionType].match_rflag[n]; *(p+nth+pos) = 1;
++	  }
++
++  }
++  hupcpp::end_finish();
++#else
+ #ifdef USE_UPCXX
+   int nshm = 0;
+   for(n=0;n<level_f->restriction[restrictionType].num_sends;n++){
+@@ -191,6 +215,7 @@
+ 
+   }
+ #endif
++#endif
+   _timeEnd = CycleTime();
+   level_f->cycles.restriction_send += (_timeEnd-_timeStart);
+ 
+@@ -204,7 +229,24 @@
+   // wait for MPI to finish...
+   _timeStart = CycleTime();
+ #ifdef USE_UPCXX
++#ifdef USE_HUPCPP
++  hupcpp::start_finish();
++  PRAGMA_THREAD_ACROSS_LOOP(n)
++  for(n=0;n<level_f->restriction[restrictionType].num_sends;n++){
++    int rid = level_f->restriction[restrictionType].send_ranks[n];
+ 
++    if (!is_memory_shared_with(rid)) {
++      int cnt = level_f->restriction[restrictionType].send_sizes[n];
++      int pos = level_f->restriction[restrictionType].send_match_pos[n];
++      event* copy_e = &level_f->restriction[restrictionType].copy_e[n];
++      event* data_e = &level_f->restriction[restrictionType].data_e[n];
++      hupcpp::asyncComm([=]() {
++    	  async_after(rid, copy_e, data_e)(cb_unpack_res, level_f->my_rank, pos, restrictionType, level_f->depth, id_c, level_c->depth);
++      });
++    }
++  }
++  hupcpp::end_finish();
++#else
+   for(n=0;n<level_f->restriction[restrictionType].num_sends;n++){
+     int rid = level_f->restriction[restrictionType].send_ranks[n];
+ 
+@@ -216,6 +258,7 @@
+       async_after(rid, copy_e, data_e)(cb_unpack_res, level_f->my_rank, pos, restrictionType, level_f->depth, id_c, level_c->depth);
+     }
+   }
++#endif
+ 
+   async_wait();
+ 
+diff -r 8e12be1ebd60 finite-volume/source/operators/symgs.c
+--- a/finite-volume/source/operators/symgs.c	Thu Aug 27 23:18:32 2015 -0500
++++ b/finite-volume/source/operators/symgs.c	Thu Aug 27 23:19:39 2015 -0500
+@@ -11,9 +11,7 @@
+              apply_BCs(level,phi_id,stencil_is_star_shaped());
+ 
+     uint64_t _timeStart = CycleTime();
+-    #ifdef _OPENMP
+-    #pragma omp parallel for private(box)
+-    #endif
++    PRAGMA_THREAD_ACROSS_LOOP(box)
+     for(box=0;box<level->num_my_boxes;box++){
+       int i,j,k;
+       const int ghosts = level->box_ghosts;
+diff -r 8e12be1ebd60 hpgmgconf.py
+--- a/hpgmgconf.py	Thu Aug 27 23:18:32 2015 -0500
++++ b/hpgmgconf.py	Thu Aug 27 23:19:39 2015 -0500
+@@ -24,6 +24,7 @@
+     parser.add_argument('--petsc-arch', help='PETSC_ARCH', default=os.environ.get('PETSC_ARCH',''))
+     parser.add_argument('--with-hpm', help='libHPM profiling library on Blue Gene ("1" or "/path/to/libmpihpm.a /path/to/libbgpm.a")')
+     parser.add_argument('--upcxx-dir', help='Path to UPC++ installation', default=os.environ.get('UPCXX_DIR',''))
++    parser.add_argument('--hupcpp-dir', help='Path to HabaneroUPC++ installation', default=os.environ.get('HABANERO_UPC_ROOT',''))
+     cf = parser.add_argument_group('Compilers and flags')
+     cf.add_argument('--CC', help='Path to C/C++ compiler', default=os.environ.get('CXX',''))
+     cf.add_argument('--CFLAGS', help='Flags for C compiler', default=os.environ.get('CFLAGS',''))
+@@ -79,6 +80,20 @@
+          'PYTHON = %s' % sys.executable,
+          'SRCDIR = %s' % os.path.abspath(os.path.dirname(__name__)),]
+ 
++    if not args.upcxx_dir and args.hupcpp_dir:
++	m.append('')
++        m.append('## HabaneroUPC++ specific ##')
++        m.append('HABANERO_UPC_ROOT = %s' % args.hupcpp_dir)
++	m.append('include $(HABANERO_UPC_ROOT)/include/hcupc_spmd.mak')
++        m.append('VPATH=$(HABANERO_UPC_ROOT)/include')
++        m.append('HPGMG_CFLAGS += -DUSE_UPCXX=1 -DUSE_HUPCPP=1')
++        m.append('HPGMG_CPPFLAGS += $(PROJECT_CXXFLAGS)')
++        m.append('HPGMG_LDFLAGS += $(PROJECT_LDFLAGS)')
++        m.append('HPGMG_LDLIBS += $(PROJECT_LDLIBS)')
++        m.append('## End of HabaneroUPC++ specific ##')
++        m.append('')
++	os.system("../scripts/omp_to_hcupc.py finite-volume/source 0")
++
+     if args.upcxx_dir:
+         m.append('')
+         m.append('## UPC++ specific ##')
+@@ -127,3 +142,4 @@
+     #defines.append('STENCIL_FUSE_DINV') # generally only good on compute-intensive architectures with good compilers
+     #defines.append('STENCIL_FUSE_BC')
+     return ' '.join('-D%s=1'%d for d in defines)
++

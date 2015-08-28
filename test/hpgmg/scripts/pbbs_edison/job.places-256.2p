@@ -1,0 +1,50 @@
+#PBS -q debug
+#PBS -l mppwidth=3072
+#PBS -l walltime=00:15:00
+#PBS -N pbbs
+#PBS -j oe
+#PBS -V
+
+cd $PBS_O_WORKDIR
+
+setenv GASNET_MAX_SEGSIZE '2GB'
+
+set LOGDIR="/global/u2/v/vivekk/pgas14/hpgmg/logs"
+set UPC_TASK=256
+
+# DONT USE BIND IN THIS CASE !!!!
+#setenv CRT_BIND_THREADS 1
+unsetenv CRT_BIND_THREADS
+setenv TBB_MALLOC /global/u2/v/vivekk/public/tbb
+setenv LD_LIBRARY_PATH ${TBB_MALLOC}:$LD_LIBRARY_PATH
+
+##########################
+set ITER=3
+# While modifying BENCH_OPTIONS,
+# also modify LOG_TYPE ACCORDINGLY
+set BENCH_OPTIONS="7 1"
+set LOG_TYPE="D7N1"
+set LOG_NAME="3096.1024.July23.${LOG_TYPE}"
+##########################
+
+set j=0
+while ( $j < ${ITER} )
+	foreach WORKERS ( 12 6 )
+		set HCUPC_LOGFILE="${LOGDIR}/HCUPC.${LOG_NAME}.W-${WORKERS}.places-${UPC_TASK}.log"
+    		set UPC_LOGFILE="${LOGDIR}/UPC.${LOG_NAME}.W-${WORKERS}.places-${UPC_TASK}.log"
+		# HCUPC Run
+		set EXE="./hupcpp.out"
+		setenv CRT_WORKERS ${WORKERS}
+		aprun -n ${UPC_TASK} -S 1 -d 12 -ss -cc numa_node ${EXE} ${BENCH_OPTIONS} >>& "${HCUPC_LOGFILE}.t"	
+		cat "${HCUPC_LOGFILE}.t" | sed '/resources: utime/d' >> "${HCUPC_LOGFILE}"
+		rm "${HCUPC_LOGFILE}.t"
+
+		# UPC Run
+		set EXE="./upcxx.out"
+		setenv OMP_NUM_THREADS ${WORKERS}
+		aprun -n ${UPC_TASK} -S 1 -d 12 -ss -cc numa_node ${EXE} ${BENCH_OPTIONS} >>& "${UPC_LOGFILE}.t"	
+		cat "${UPC_LOGFILE}.t" | sed '/resources: utime/d' >> "${UPC_LOGFILE}"
+		rm "${UPC_LOGFILE}.t"
+	end
+	set j=`expr ${j} + 1`
+end
