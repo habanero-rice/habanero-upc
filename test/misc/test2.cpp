@@ -1,6 +1,7 @@
 #include "hcupc_spmd.h"
 
 using namespace upcxx;
+using namespace std;
 
 typedef struct tmp {
   int value;
@@ -11,8 +12,8 @@ int main(int argc, char **argv)
   hupcpp::init(&argc, &argv);
   tmp t = {0};
 
-  hcpp::finish_spmd([&]() {
-    if(MYTHREAD==0) hcpp::asyncAt(1,[&](){
+  hupcpp::finish_spmd([&]() {
+    if(MYTHREAD==0) hupcpp::asyncAt(1,[&](){
       // this is possible only if "t" is captured by reference and not by value.
       t.value = 100;  
       cout << MYTHREAD << ": tmp.value = " << t.value << endl;
