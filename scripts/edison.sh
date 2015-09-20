@@ -21,6 +21,7 @@ setenv HCPP_BASE /global/u2/v/vivekk/pgas14/github/hcpp
 ################################################
 
 setenv CXX "CC -DGASNETT_USE_GCC_ATTRIBUTE_MAYALIAS=1"
+setenv CXX_LINKER g++
 setenv CC cc
 setenv HCPP_ROOT ${HCPP_BASE}/hcpp-install
 setenv HABANERO_UPC_ROOT ${BASE}/habanero-upc-install
