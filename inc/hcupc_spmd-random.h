@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
- * This file is originally taken from the github directory https://github.com/perarnau/uts
+ * This file was originally taken from the github directory https://github.com/perarnau/uts
  */
 
 namespace hupcpp {

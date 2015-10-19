@@ -95,6 +95,7 @@ template <typename T>
 inline void asyncComm(T lambda) {
 	hcpp::asyncComm<T>(lambda);
 }
+
 template <typename T>
 inline void async(T lambda) {
 	hcpp::async<T>(lambda);
