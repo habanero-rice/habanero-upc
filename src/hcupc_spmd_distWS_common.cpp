@@ -41,6 +41,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "hcupc_spmd-atomics.h"
 #include <cmath>
 
+/**
+ * Two different types of distributed work-stealing algorithms are available
+ * a) BaselineWS and b) SuccessOnlyWS
+ *
+ * BaselineWS involves inter-place failed steal attempts, extra idle time, extra inter-place messages. SuccessOnlyWS
+ * removes inter-place failed steals, reduces idle time and also reduces total inter-place message exchanges
+ *
+ * To use BaselineWS set this environment varialbe before launching the runtime:
+ * export HCPP_DIST_WS_BASELINE=1
+ * SuccessOnlyWS is the default implementation
+ */
+
 /*
  * ------- Runtime control flags -------- Start
  */
