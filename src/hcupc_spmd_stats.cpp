@@ -33,6 +33,40 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *      Author: Vivek Kumar (vivekk@rice.edu)
  */
 
+/**
+ * Following types of statistics are available:
+ *
+ * 1) Timeline of failed steals:
+ * 		- This is available only in the baseline implementation of disWS (env variable HCPP_DIST_WS_BASELINE = 1)
+ * 		- For a given place count, first run the benchmark couple of times to estimate the total execution time
+ * 		- Then to estimate the total % of failed steals during 20 timesteps of total program execution rerun the
+ * 		  benchmark with the following setting: export HCPP_APP_EXEC_TIME=<benchmark execution time in seconds>
+ * 		- Total number of timesteps can be changed using the macro MAX_TIMESTEPS
+ *
+ * 	2) Measurement of total idle time (search + termination detection time)
+ * 	    - Rebuild hcpp after uncommenting this line in file hcpp/inc/hcpp-timer.h
+ * 	    	#define _TIMER_ON_
+ * 	    - Rebuild hcpp (cd hcpp/compileTree; make clean; make install)
+ *
+ *  3) Total inter-place message exchanges for distributed work-stealing: (assume total_success_steals = total inter-place
+ *  		successful steals; total_failed_steals = total inter-place failed Steals)
+ *  		(Note: Check metod search_tasks_globally)
+ *  	a) SuccessOnlyWS:
+ *  		= Total RDMA probes + (2 * total_success_steals)
+ *  		= (total_asyncany_rdma_probes) + (2 * total_success_steals)
+ *  	b) BaselineWS: (Note: Check method findwork_baseline)
+ *  		= Total RDMA probes + ( (Total Locks + Total Unlocks)*(total_success_steals+total_failed_steals) )
+ *  						+ (check queuing request * (total_success_steals+total_failed_steals) )
+ *  						+ (queue request * total_success_steals)
+ *  		= (total_asyncany_rdma_probes) + ( 2*(total_success_steals+total_failed_steals) )
+ *  						+ (total_success_steals+total_failed_steals)
+ *  						+ total_success_steals
+ *  		= total_asyncany_rdma_probes + 4*total_success_steals + 3*total_failed_steals
+ * 	3) Total number of inter-place failed steals, inter-place steals, inter-place tasks send, inter-place RDMA probes, total intra-place steals,
+ * 		total intra-place pushes, number of victims contacted in each search phase, etc, are also provided
+ *
+ */
+
 #include "hcupc_spmd-internal.h"
 #include "hcupc_spmd_common_methods.h"
 #include "hcupc_spmd-commTask.h"
