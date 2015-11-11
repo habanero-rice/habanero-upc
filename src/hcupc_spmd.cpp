@@ -222,9 +222,10 @@ inline void pop_execute_comm_task() {
 }
 
 #ifdef DIST_WS
-//#define BASELINE_IMP
 
-void hcpp_finish_barrier() {
+const static char* baseline_distWS = getenv("HCPP_DIST_WS_BASELINE");
+
+void hcpp_finish_barrier_distWS() {
 	int status = NO_TERM;
 
 	hupcpp::barrier();
@@ -234,12 +235,10 @@ void hcpp_finish_barrier() {
 		pop_execute_comm_task();
 
 		upcxx::advance();
-#ifndef BASELINE_IMP
 		bool tasksReceived = received_tasks_from_victim();
 		if(tasksReceived) {
 			decrement_tasks_in_flight_count();
 		}
-#endif
 		bool tryTermination = true;
 
 		// 1. If i have extra tasks then I should feed others
@@ -258,11 +257,7 @@ void hcpp_finish_barrier() {
 			if(singlePlace) break;
 			status = cbarrier_inc();
 			while (status != TERM) {
-#ifdef BASELINE_IMP
-				const bool isTrue = detectWork() && cbarrier_dec() != TERM;
-#else
 				const bool isTrue = (received_tasks_from_victim() || detectWork()) && cbarrier_dec() != TERM;
-#endif
 				if (isTrue) {
 					status = NO_TERM;
 					break;
@@ -278,6 +273,61 @@ void hcpp_finish_barrier() {
 	HASSERT(totalPendingLocalAsyncs() == 0);
 
 	hupcpp::barrier();
+}
+
+void hcpp_finish_barrier_baseline_distWS() {
+	int status = NO_TERM;
+
+	hupcpp::barrier();
+	const bool singlePlace = THREADS == 1;
+
+	while (status != TERM) {
+		pop_execute_comm_task();
+
+		upcxx::advance();
+		bool tryTermination = true;
+
+		// 1. If i have extra tasks then I should feed others
+		if(!initiate_global_steal()) {
+			serve_pending_distSteal_request_baseline();
+		}
+
+		// 2. If my workers are asking global steals then I should try dist ws
+		else {
+			bool success = search_tasks_globally_baseline();
+			if(success) tryTermination = false;
+		}
+
+		// 3. If I failed stealing and my workers are idle, I should try termination
+		if(tryTermination && totalPendingLocalAsyncs() == 0 && total_asyncs_inFlight() == 0) {
+			if(singlePlace) break;
+			status = cbarrier_inc();
+			while (status != TERM) {
+				const bool isTrue = detectWork() && cbarrier_dec() != TERM;
+				if (isTrue) {
+					status = NO_TERM;
+					break;
+				}
+				else {
+					upcxx::advance();	// only when this place is sure all other place are idle
+				}
+				status = cbarrier_test();
+			}
+		}
+	}
+
+	HASSERT(totalPendingLocalAsyncs() == 0);
+
+	hupcpp::barrier();
+}
+
+void hcpp_finish_barrier() {
+	if(baseline_distWS) {
+		hcpp_finish_barrier_baseline_distWS();
+	}
+	else {
+		hcpp_finish_barrier_distWS();
+	}
 }
 
 #else
@@ -367,185 +417,5 @@ void finish_spmd(std::function<void()> lambda) {
 	free_upcxx_event_list();
 }
 
-/*
- * NOTE: this is a collective routine
- */
-
-void runtime_statistics(double duration) {
-#ifdef HC_COMM_WORKER_STATS
-	shared_array<int> push_outd_myPlace;
-	shared_array<int> push_ind_myPlace;
-	shared_array<int> steal_ind_myPlace;
-
-	push_outd_myPlace.init(THREADS);
-	push_ind_myPlace.init(THREADS);
-	steal_ind_myPlace.init(THREADS);
-
-	int c1, c2, c3;
-	hcpp::gather_commWorker_Stats(&c1, &c2, &c3);
-
-	push_outd_myPlace[MYTHREAD] = c1;
-	push_ind_myPlace[MYTHREAD] = c2;
-	steal_ind_myPlace[MYTHREAD] = c3;
-#endif
-
-	shared_array<counter_t> tasks_sendto_remotePlace;
-	shared_array<counter_t> total_dist_successSteals;
-	shared_array<counter_t> total_dist_failedSteals;
-	shared_array<counter_t> total_recvStealReqsWhenFree;
-	shared_array<counter_t> total_cyclic_steals;
-	shared_array<counter_t> total_rdma_probes;
-
-	tasks_sendto_remotePlace.init(THREADS);
-	total_dist_successSteals.init(THREADS);
-	total_dist_failedSteals.init(THREADS);
-	total_recvStealReqsWhenFree.init(THREADS);
-	total_cyclic_steals.init(THREADS);
-	total_rdma_probes.init(THREADS);
-
-	counter_t c4, c5, c6, c7, c8, c9;
-
-	get_totalAsyncAny_stats(&c4, &c5, &c6, &c7, &c8, &c9);
-
-	tasks_sendto_remotePlace[MYTHREAD] = c4;
-	total_dist_successSteals[MYTHREAD] = c5;
-	total_dist_failedSteals[MYTHREAD] = c6;
-	total_recvStealReqsWhenFree[MYTHREAD] = c7;
-	total_cyclic_steals[MYTHREAD] = c8;
-	total_rdma_probes[MYTHREAD] = c9;
-
-	int s1=0, s2=0, s3=0, s4=0, s4P=0;
-	get_steal_stats(&s1, &s2, &s3, &s4, &s4P);
-
-	shared_array<int> total_steal_1;
-	shared_array<int> total_steal_2;
-	shared_array<int> total_steal_3;
-	shared_array<int> total_steal_4;
-	shared_array<int> total_steal_4P;
-
-	total_steal_1.init(THREADS);
-	total_steal_2.init(THREADS);
-	total_steal_3.init(THREADS);
-	total_steal_4.init(THREADS);
-	total_steal_4P.init(THREADS);
-
-	total_steal_1[MYTHREAD] = s1;
-	total_steal_2[MYTHREAD] = s2;
-	total_steal_3[MYTHREAD] = s3;
-	total_steal_4[MYTHREAD] = s4;
-	total_steal_4P[MYTHREAD] = s4P;
-
-	hupcpp::barrier();
-#ifdef DIST_WS
-	if(MYTHREAD == 0) {
-#ifdef HC_COMM_WORKER_STATS
-		int t1=0, t2=0, t3=0;
-#endif
-		counter_t t4=0, t5=0, t6=0, t7=0, t7b=0, t7c=0;
-		int t8=0,t9=0,t10=0,t11=0,t12=0;
-		for(int i=0; i<THREADS; i++) {
-#ifdef HC_COMM_WORKER_STATS
-			t1 += push_outd_myPlace[i];
-			t2 += push_ind_myPlace[i];
-			t3 += steal_ind_myPlace[i];
-#endif
-			t4 += tasks_sendto_remotePlace[i];
-			t5 += total_dist_successSteals[i];
-			t6 += total_dist_failedSteals[i];
-			t7 += total_recvStealReqsWhenFree[i];
-			t7b += total_cyclic_steals[i];
-			t7c += total_rdma_probes[i];
-
-			t8 += total_steal_1[i];
-			t9 += total_steal_2[i];
-			t10 += total_steal_3[i];
-			t11 += total_steal_4[i];
-			t12 += total_steal_4P[i];
-		}
-
-		printf("============================ MMTk Statistics Totals ============================\n");
-#ifdef HC_COMM_WORKER_STATS
-		printf("time.mu\ttotalPushOutDeq\ttotalPushInDeq\ttotalStealsInDeq\ttotalTasksSendToRemote\ttotalSuccessDistSteals\ttotalFailedDistSteals\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes");
-		printf("\tS1\tS2\tS3\tS4\tS4Plus\n");
-
-		printf("%.3f\t%d\t%d\t%d\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu",duration,t1,t2, t3, t4, t5, t6, t7, t7b, t7c);
-		printf("\t%d\t%d\t%d\t%d\t%d\n",t8,t9,t10,t11,t12);
-
-#else
-		printf("time.mu\ttotalTasksSendToRemote\ttotalSuccessDistSteals\ttotalFailedDistSteal\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes");
-		printf("\tS1\tS2\tS3\tS4\tS4Plus\n");
-
-		printf("%.3f\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu",duration,t4, t5, t6, t7, t7b, t7c);
-		printf("\t%d\t%d\t%d\t%d\t%d\n",t8,t9,t10,t11,t12);
-
-#endif
-		printf("Total time: %.3f ms\n",duration);
-		printf("------------------------------ End MMTk Statistics -----------------------------\n");
-		printf("===== TEST PASSED in %.3f msec =====\n",duration);
-	}
-#else // !DIST_WS
-	if(MYTHREAD == 0) {
-#ifdef HC_COMM_WORKER_STATS
-		int t1=0, t2=0, t3=0;
-#endif
-		counter_t t4=0;
-		for(int i=0; i<THREADS; i++) {
-#ifdef HC_COMM_WORKER_STATS
-			t1 += push_outd_myPlace[i];
-			t2 += push_ind_myPlace[i];
-			t3 += steal_ind_myPlace[i];
-#endif
-			t4 += tasks_sendto_remotePlace[i];
-		}
-
-		printf("============================ MMTk Statistics Totals ============================\n");
-#ifdef HC_COMM_WORKER_STATS
-		printf("time.mu\ttotalPushOutDeq\ttotalPushInDeq\ttotalStealsInDeq\ttotalTasksSendToRemote\n");
-		printf("%.3f\t%d\t%d\t%d\t%llu\n",duration,t1,t2, t3, t4);
-
-#else
-		printf("time.mu\ttotalTasksSendToRemote\n");
-		printf("%.3f\t%llu\n",duration,t4);
-
-#endif
-		printf("Total time: %.3f ms\n",duration);
-		printf("------------------------------ End MMTk Statistics -----------------------------\n");
-		printf("===== TEST PASSED in %.3f msec =====\n",duration);
-	}
-#endif // end DIST_WS
-}
-
-static double benchmark_start_time_stats = 0;
-
-double mysecond() {
-	struct timeval tv;
-	gettimeofday(&tv, 0);
-	return tv.tv_sec + ((double) tv.tv_usec / 1000000);
-}
-
-void showStatsHeader() {
-	if(MYTHREAD == 0) {
-		cout << endl;
-		cout << "-----" << endl;
-		cout << "mkdir timedrun fake" << endl;
-		cout << endl;
-	}
-	initialize_hcWorker();
-	if(MYTHREAD == 0) {
-		cout << endl;
-		cout << "-----" << endl;
-	}
-	benchmark_start_time_stats = mysecond();
-}
-
-void showStatsFooter() {
-	double end = mysecond();
-	HASSERT(benchmark_start_time_stats != 0);
-	double dur = (end-benchmark_start_time_stats)*1000;	// timer is switched off before printing topology
-	if(MYTHREAD == 0) {
-		print_topology_information();
-	}
-	runtime_statistics(dur);
-}
 }
 

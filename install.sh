@@ -32,10 +32,10 @@ if [ $all -eq 1 ]; then
     ./clobber.sh
     if [ -n "${HCUPC_FLAGS}" ]; then
 	echo "HCPP Build Flags: ${HCUPC_FLAGS} --enable-hupcpp"
-    	HCUPC_FLAGS="${HCUPC_FLAGS} --enable-hupcpp" ./install.sh
+    	HCPP_FLAGS="${HCUPC_FLAGS} --enable-hupcpp" ./install.sh
     else
 	echo "HCPP Build Flags: --enable-hupcpp"
-    	HCUPC_FLAGS="--enable-hupcpp" ./install.sh
+    	HCPP_FLAGS="--enable-hupcpp" ./install.sh
     fi 
 fi
 

@@ -55,12 +55,12 @@ namespace hupcpp {
 typedef unsigned long long counter_t;
 
 void initialize_distws_setOfThieves();
-void get_totalAsyncAny_stats(counter_t *tasksStolen, counter_t* successSteals, counter_t* failSteals, counter_t* recvStealReqsWhenFree, counter_t*, counter_t*);
-void get_steal_stats(int* s1, int* s2, int* s3, int* s4, int* s4P);
 int detectWork();
 int total_asyncs_inFlight();
 bool serve_pending_distSteal_request();
+bool serve_pending_distSteal_request_baseline();
 bool search_tasks_globally();
+bool search_tasks_globally_baseline();
 void decrement_tasks_in_flight_count();
 bool received_tasks_from_victim();
 void create_distributed_hpt(int row, int column, int chasis, int blade, int rank);
@@ -70,4 +70,16 @@ void semiConcDequeInit();
 void increment_task_in_flight_self();
 void publish_local_load_info();
 void increment_outgoing_tasks();
+void initialize_hcWorker();
+
+// statistics related
+void get_totalAsyncAny_stats(counter_t *tasksStolen, counter_t* successSteals, counter_t* failSteals, counter_t* recvStealReqsWhenFree, counter_t*, counter_t*);
+void get_steal_stats(int* s1, int* s2, int* s3, int* s4, int* s4P);
+void record_failedSteal_timeline();
+void contacted_victims_statistics(int victims_contacted);
+void check_cyclicSteals(int v, int head, int tail, int* queued_thieves);
+void check_if_out_of_work_stats(bool out_of_work);
+void stats_initTimelineEvents();
+void success_steals_stats();
+void total_asyncany_rdma_probes_stats();
 }

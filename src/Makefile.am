@@ -31,8 +31,7 @@ AM_CXXFLAGS = $(HABANEROUPC_CXXFLAGS)
 lib_LTLIBRARIES = libhcupcpp.la
 
 # build the runtime library
-libhcupcpp_la_SOURCES = hcupc_spmd.cpp hcupc_spmd_distWS.cpp hcupc_spmd-semiConcDeque.cpp hcupc_spmd-distHPT.cpp
-
+libhcupcpp_la_SOURCES = hcupc_spmd.cpp hcupc_spmd_distWS_common.cpp hcupc_spmd-semiConcDeque.cpp hcupc_spmd-distHPT.cpp hcupc_spmd_stats.cpp
 libhcupcpp_la_CXXFLAGS = $(AM_CXXFLAGS)
 
 MAINTAINERCLEANFILES = Makefile.in
