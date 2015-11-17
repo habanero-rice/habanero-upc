@@ -68,9 +68,17 @@ void comm_wrapper1(void *args) {
 struct comm_async_task  {
 	char _args[MAX_COMM_ASYNC_ARG_SIZE];
 	comm_async_generic_framePtr _fp;
+	bool involve_communication;
 	inline void init_comm_async_task(comm_async_generic_framePtr fp, size_t arg_sz, void *async_args) {
 		HASSERT(arg_sz <= MAX_COMM_ASYNC_ARG_SIZE);
 		this->_fp = fp;
+		/*
+		 * By default all communication worker tasks involves communication.
+		 * There are some special cases where we want some task to be executed
+		 * only by communication worker but it does not involves communication and
+		 * hence should not increment task in flight counter.
+		 */
+		this->involve_communication = true;
 		memcpy(&this->_args, async_args, arg_sz);
 	}
 
@@ -99,6 +107,25 @@ inline void allocate_comm_task(T lambda) {
 	T* task = (T*) hcupc_malloc(nbytes);
 	memcpy(task, &lambda, nbytes);
 	comm_async_task cb = comm_async_task(execute_comm_task<T>, task);
+	send_taskto_comm_worker(&cb);
+}
+
+/**
+ * This task is not meant to be used in user code. Only meant to
+ * be used in runtime for special cases.
+ *
+ * By default all communication worker tasks involves communication.
+ * There are some special cases where we want some task to be executed
+ * only by communication worker but it does not involves communication and
+ * hence should not increment task in flight counter.
+ */
+template <typename T>
+inline void __intraPlace_asyncComm(T lambda) {
+	const size_t nbytes = sizeof(T);
+	T* task = (T*) hcupc_malloc(nbytes);
+	memcpy(task, &lambda, nbytes);
+	comm_async_task cb = comm_async_task(execute_comm_task<T>, task);
+	cb.involve_communication = false;
 	send_taskto_comm_worker(&cb);
 }
 

@@ -43,4 +43,5 @@ void init(int * argc, char *** argv);
 void finalize();
 void showStatsHeader();
 void showStatsFooter();
+void dddf_register_callback(DDF_t** ddf_list);
 }

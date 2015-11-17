@@ -358,6 +358,7 @@ void publish_local_load_info() {
 #endif
 }
 
+#ifdef DIST_WS
 /*
  * Runs at thief when victim sends asyncAny task to thief
  */
@@ -539,7 +540,7 @@ void receipt_of_stealRequest() {
  *
  * This is an improvement over:
  * Saraswat, V.A., Kambadur, P., Kodali, S., Grove, D., Krishnamoorthy,
- * S.: Lifeline-based global load balancing. In: PPoPP. pp. 201Ð212 (2011)
+ * S.: Lifeline-based global load balancing. In: PPoPP. pp. 201ï¿½212 (2011)
  */
 bool search_tasks_globally() {
 	// show this thread as not working
@@ -675,5 +676,6 @@ bool search_tasks_globally_baseline() {
 
 	return success;
 }
+#endif
 
 }
