@@ -44,7 +44,7 @@ namespace hupcpp {
 /* Semi Concurrent DEQUE                              */
 /******************************************************/
 
-#define SEMI_CONCURRENT_DEQUE_SIZE		50
+#define SEMI_CONCURRENT_DEQUE_SIZE		8192
 volatile comm_async_task DEQUE[SEMI_CONCURRENT_DEQUE_SIZE][sizeof(comm_async_task)];
 volatile int deqHead;
 volatile int deqTail;
@@ -61,7 +61,7 @@ void comm_task_push(comm_async_task* entry) {
 	while (!success) {
 		int size = deqTail - deqHead;
 		if (SEMI_CONCURRENT_DEQUE_SIZE == size) {
-			HASSERT("SEMI_CONCURRENT_DEQUE full, increase deque's size" && 0);
+			assert("SEMI_CONCURRENT_DEQUE full, increase deque's size" && 0);
 		}
 
 		if (hc_cas(&lock, 0, 1) ) {

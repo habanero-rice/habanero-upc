@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "hcupc_spmd_common_methods.h"
 #include "hcupc_spmd-commTask.h"
 #include "hcupc_spmd-atomics.h"
+#include  <mutex>
 
 namespace hupcpp {
 
@@ -45,7 +46,7 @@ static bool hc_workers_initialized = false;
 volatile int* current_finish_counter = NULL;
 
 void init(int * argc, char *** argv) {
-        hcpp::init(argc, *argv);
+        hcpp::init(argc, *argv, dddf_register_callback);
         upcxx::init(argc, argv);
         hupcpp::showStatsHeader();
 }
@@ -75,10 +76,19 @@ typedef struct event_list {
 static event_list* event_list_head = NULL;
 static event_list* event_list_curr;
 
+// c++11 mutex to ensure thread-safety while
+// creating and upcxx::event
+std::mutex event_mutex;
+
+/*
+ * Ensure this is thread safe as multiple computation
+ * workers call this routine concurrently
+ */
 upcxx::event* get_upcxx_event() {
 	event_list *el = new event_list;
 	el->next = NULL;
 
+	event_mutex.lock();
 	if(!event_list_head) {
 		event_list_head = event_list_curr = el;
 	}
@@ -86,6 +96,8 @@ upcxx::event* get_upcxx_event() {
 		event_list_curr->next = el;
 		event_list_curr = el;
 	}
+	event_mutex.unlock();
+
 	return &(el->e);
 }
 
@@ -118,7 +130,7 @@ int barrier() {
 /*
  * We use cancellable barrier for global termination detection.
  * This is adapted from:
- * Olivier, S., Prins, J.: Scalable dynamic load balancing using upc. In: ICPP. pp.123Ð131 (2008)
+ * Olivier, S., Prins, J.: Scalable dynamic load balancing using upc. In: ICPP. pp.123ï¿½131 (2008)
  */
 upcxx::shared_var<int> cb_cancel;
 upcxx::shared_var<int> cb_count;
@@ -208,10 +220,18 @@ inline void pop_execute_comm_task() {
 		comm_async_task task;
 		success = comm_task_pop(&task);
 		if(success) {
-			// increment outgoing task counter
-			increment_task_in_flight_self();
-			// statistics -- increment outgoing task counter
-			increment_outgoing_tasks();
+			if(task.involve_communication) {
+				/*
+				 * By default all communication worker tasks involves communication.
+				 * There are some special cases where we want some task to be executed
+				 * only by communication worker but it does not involves communication and
+				 * hence should not increment task in flight counter.
+				 */
+				// increment outgoing task counter
+				increment_task_in_flight_self();
+				// statistics -- increment outgoing task counter
+				increment_outgoing_tasks();
+			}
 			// execute the task
 			(task._fp)(task._args);
 			// decrement finish counter
@@ -377,6 +397,7 @@ void hcpp_finish_barrier() {
 void finish_spmd(std::function<void()> lambda) {
 	HASSERT(hc_workers_initialized);
 	cb_init();
+	start_finish_spmd_timer();
 	/*
 	 * we support distributed workstealing only if each
 	 * place has a communication worker, i.e. hc_workers > 1
@@ -415,6 +436,7 @@ void finish_spmd(std::function<void()> lambda) {
 	 */
 	end_finish();
 	free_upcxx_event_list();
+	end_finish_spmd_timer();
 }
 
 }
