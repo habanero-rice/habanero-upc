@@ -5,7 +5,7 @@
 ########################################
 
 # ABSOLUTE PATH TO UPC++ INSTALLATION DIRECTORY
-export UPCPP_ROOT=${HOME}/pgas/upcxx/upcxx-install
+export UPCPP_ROOT=${HOME}/pgas/upcxx-install
 
 # ABSOLUTE PATH TO HABANERO-C++ BASE DIRECTORY
 export HCPP_BASE=${HOME}/pgas/hcpp

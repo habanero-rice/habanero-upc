@@ -5,7 +5,7 @@ EXE=smith-waterman
 all: clean $(EXE) clean-obj
 
 smith-waterman: smith-waterman.cpp
-	icc $(PROJECT_CXXFLAGS) $(PROJECT_LDFLAGS) -o $@ $^ $(PROJECT_LDLIBS)
+	$(CXX) $(PROJECT_CXXFLAGS) $(PROJECT_LDFLAGS) -o $@ $^ $(PROJECT_LDLIBS)
 
 clean-obj:
 	rm -rf *.o *.dSYM
