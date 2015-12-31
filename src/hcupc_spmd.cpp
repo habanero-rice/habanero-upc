@@ -47,7 +47,7 @@ volatile int* current_finish_counter = NULL;
 
 extern "C" {
 extern void (*hclib_distributed_promise_register_callback)(
-        hclib_promise_t** promise_list);
+        hclib::promise_t** promise_list);
 }
 
 void launch(int *argc, char ***argv, std::function<void()> lambda) {

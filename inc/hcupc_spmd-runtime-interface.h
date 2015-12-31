@@ -41,7 +41,7 @@ typedef	hclib::promise_t  promise_t;
 typedef	hclib::ddt_t  DDT_t;
 
 inline promise_t* promise_create() {
-	return hclib::promise_create();
+    return new promise_t();
 }
 
 inline promise_t ** promise_create_n(size_t nb_promises, int null_terminated) {
@@ -49,11 +49,11 @@ inline promise_t ** promise_create_n(size_t nb_promises, int null_terminated) {
 }
 
 inline void promise_free(promise_t * promise) {
-	hclib::promise_free(promise);
+    delete promise;
 }
 
 inline void * promise_get(promise_t * promise) {
-	return hclib::promise_get(promise);
+    return promise->get();
 }
 
 #include "hcupc_spmd-asyncAwait.h"
@@ -75,7 +75,7 @@ inline void register_incoming_async_promise(void* d) {
 		promise_t * promise = (promise_t *) d;
 		int* tmp = new int;
 		*tmp = 10;
-		hclib::promise_put(promise, (void*)tmp);
+        promise->put(tmp);
 	}
 }
 

@@ -97,8 +97,8 @@ promise_t* __promiseHandle( int gid, int hid, size_t size) {
 
 	// initialize the local promise_t equivalent pointer for this dpromise_t
 	promise_t* promise = &(myindex_promise_array->the_promise);
-	hclib::promise_init(promise);	// does not allocate but only initializes
-	promise->kind = (hid == MYTHREAD) ? PROMISE_KIND_DISTRIBUTED_OWNER : PROMISE_KIND_DISTRIBUTED_REMOTE;
+    new (promise) promise_t();
+	promise->internal.kind = (hid == MYTHREAD) ? PROMISE_KIND_DISTRIBUTED_OWNER : PROMISE_KIND_DISTRIBUTED_REMOTE;
 
 	// initialize structure variables
 	myindex_promise_array->global_id = gid;
@@ -110,7 +110,7 @@ promise_t* __promiseHandle( int gid, int hid, size_t size) {
 	// allocate the datum in global address space
 	myindex_promise_array->datum = new upcxx::shared_array<char>();
 	(*myindex_promise_array->datum).init(THREADS*(myindex_promise_array->count), myindex_promise_array->count);	// block cyclic allocation of array
-	const int kind = promise->kind;
+	const int kind = promise->internal.kind;
 	HASSERT(kind == PROMISE_KIND_DISTRIBUTED_OWNER || kind == PROMISE_KIND_DISTRIBUTED_REMOTE);
 	hupcpp::barrier();
 
@@ -138,7 +138,7 @@ inline void PROMISE_PUT_home(int guid, int source) {
 	remote_dpromise_array->put_initiator_rank = source;
 	// 4. perform a local promise_put
 	promise_t* promise_remote = &remote_dpromise_array->the_promise;
-	hclib::promise_put(promise_remote, data_remote);
+    promise_remote->put(data_remote);
 }
 
 /*
@@ -178,10 +178,10 @@ inline void copy_datum_from_private_to_globalAddress(promise_t* promise, void* d
 }
 
 void PROMISE_PUT(promise_t* promise, void* data) {
-	int kind = promise->kind;
+	int kind = promise->internal.kind;
 	// 1. do a local put in all cases
 	// incase the user breaks the single-assignment rule, an error will be thrown here
-	hclib::promise_put(promise, data);
+    promise->put(data);
 	switch (kind) {
 	case PROMISE_KIND_SHARED:
 		// intra-node promise implementation --> nothing else to do
@@ -213,7 +213,7 @@ void PROMISE_PUT(promise_t* promise, void* data) {
 }
 
 void* PROMISE_GET(promise_t* promise) {
-	return hclib::promise_get(promise);
+    return promise->get();
 }
 
 /*
@@ -221,12 +221,12 @@ void* PROMISE_GET(promise_t* promise) {
  * a collective call
  */
 void PROMISE_FREE(promise_t* promise) {
-	int kind = promise->kind;
+	int kind = promise->internal.kind;
 	switch (kind) {
 	case PROMISE_KIND_SHARED:
 	{
 		// intra-node promise implementation
-		hclib::promise_free(promise);
+        delete promise;
 		break;
 	}
 	case PROMISE_KIND_DISTRIBUTED_OWNER:
@@ -248,7 +248,7 @@ void PROMISE_FREE(promise_t* promise) {
 }
 
 int __promiseGetHome(promise_t* promise) {
-	int kind = promise->kind;
+	int kind = promise->internal.kind;
 	int home = -1;
 	switch (kind) {
 	case PROMISE_KIND_SHARED:
@@ -282,12 +282,12 @@ inline void PROMISE_PUT_callback(int dest, int guid) {
 	HASSERT(gotit != distributed_promise_guid_map.end());
 	dpromise_t* myindex_dpromise_array = gotit->second;
 	promise_t* the_promise = &(myindex_dpromise_array->the_promise);
-	hupcpp::asyncAwait(the_promise, [=]() {
+	hupcpp::asyncAwait([=]() {
 		// 2. When control is here, it means the promise is ready with the put data
 		if(myindex_dpromise_array->put_initiator_rank != dest) { // Don't have the do a put_back if the requestor node is the source of the actual put
 			PROMISE_PUT_remote(myindex_dpromise_array, dest);
 		}
-	});
+	}, the_promise);
 }
 
 /*
@@ -300,7 +300,7 @@ void dpromise_register_callback(promise_t** promise_list) {
 	int index = 0;
 	while (promise_list[index] != NULL) {
 		promise_t* promise = promise_list[index++];
-		int kind = promise->kind;
+		int kind = promise->internal.kind;
 		switch(kind) {
 		case PROMISE_KIND_SHARED:
 			continue;

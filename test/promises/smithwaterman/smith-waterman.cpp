@@ -421,7 +421,7 @@ int main ( int argc, char* argv[] ) {
 	    			if ( rank == PROMISE_HOME(i*j_domain+j) ) {
 	    				if (debug) fprintf(stderr, "before rank:%d entered [%d][%d]\n", rank ,i,j);
 	    				if (debug) fprintf(stderr, "[%p][%p][%p]\n", tile_matrix[i][j-1].right_column,tile_matrix[i-1][j].bottom_row,tile_matrix[i-1][j-1].bottom_right );
-	    				hupcpp::asyncAwait(tile_matrix[i][j-1].right_column, tile_matrix[i-1][j].bottom_row, tile_matrix[i-1][j-1].bottom_right, [=]() {
+	    				hupcpp::asyncAwait([=]() {
 	    					if(TRACE) fprintf(stderr, "Start step (Compute: (%d,%d))\n",i,j);
 	    					if (debug) fprintf(stderr, "rank:%d entered [%d][%d]\n", rank,i,j);
 	    					if (debug) fprintf(stderr, "in async [%p][%p][%p]\n", tile_matrix[i][j-1].right_column,tile_matrix[i-1][j].bottom_row,tile_matrix[i-1][j-1].bottom_right );
@@ -497,7 +497,7 @@ int main ( int argc, char* argv[] ) {
 	    					free(curr_tile_tmp);
 	    					if (debug) fprintf(stderr, "rank:%d exited [%d][%d]\n",rank,i,j);
 	    					if(TRACE) fprintf(stderr, "End step (Compute: (%d,%d))\n",i,j);
-	    				});
+	    				}, tile_matrix[i][j-1].right_column, tile_matrix[i-1][j].bottom_row, tile_matrix[i-1][j-1].bottom_right);
 	    			};
 	    		}
 	    	}
