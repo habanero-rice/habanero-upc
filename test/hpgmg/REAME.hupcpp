@@ -7,5 +7,5 @@ git checkout 66ee7ea
 patch -p1 < ../scripts/hupcpp.patch
 ./configure --hupcpp-dir /Users/vivek/rice_work/projects/release/habanero-upc/habanero-upc-install --CC mpicxx --CFLAGS "-std=c++11 -O3" --no-fe
 make -j3 -C build V=1
-export HCPP_WORKERS=N
+export HCLIB_WORKERS=N
 mpirun -np 2 ./build/bin/hpgmg-fv 7 1

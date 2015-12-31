@@ -10,14 +10,14 @@ cd $PBS_O_WORKDIR
 setenv GASNET_MAX_SEGSIZE '512MB'
 
 set UPC_TASK=8
-setenv HCPP_WORKERS 24
+setenv HCLIB_WORKERS 24
 set SW_TYPE="huge"
 
 set LOGDIR="/global/u2/v/vivekk/dddf/logs"
-set LOGFILE="${LOGDIR}/sw.3096.1024.HCUPC.${SW_TYPE}.HC${HCPP_WORKERS}.places-${UPC_TASK}.log"
+set LOGFILE="${LOGDIR}/sw.3096.1024.HCUPC.${SW_TYPE}.HC${HCLIB_WORKERS}.places-${UPC_TASK}.log"
 
 set ITER=3
-setenv HCPP_BIND_THREADS 1
+setenv HCLIB_BIND_THREADS 1
 
 #SW_TYPE=tiny
 #SW_TYPE=medium

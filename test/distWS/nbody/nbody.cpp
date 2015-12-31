@@ -25,10 +25,10 @@ static float accy[NUMBODIES];
 static float accz[NUMBODIES];
 
 #ifdef VERIFY_SHORT
-#define MAX_HCPP_WORKERS 24
+#define MAX_HCLIB_WORKERS 24
 /* For stats generation: */
 typedef unsigned long long counter_t;
-static counter_t TOTAL_COUNTS[MAX_HCPP_WORKERS];
+static counter_t TOTAL_COUNTS[MAX_HCLIB_WORKERS];
 #define COUNT_OPS		{ TOTAL_COUNTS[hupcpp::get_hc_wid()]++; }
 #else
 #define COUNT_OPS
@@ -110,7 +110,7 @@ int main(int argc,char **argv) {
  	double dur = ((double)(end-start))/1000000;
 #ifdef VERIFY_SHORT
 	counter_t sum = 0;
-	for(int i=0; i<MAX_HCPP_WORKERS; i++) {
+	for(int i=0; i<MAX_HCLIB_WORKERS; i++) {
 		sum+=TOTAL_COUNTS[i];
 	}
 	counter_t total_sum;

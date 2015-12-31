@@ -11,11 +11,11 @@ if($#ARGV != 0) {
 ####################################################
 #template <typename T>
 #void asyncAwait(DDF_t* ddf0, T lambda) {
-#	hcpp::asyncAwait<T>(ddf0, lambda);
+#	hclib::asyncAwait<T>(ddf0, lambda);
 #}
 #template <typename T>
 #void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, T lambda) {
-#	hcpp::asyncAwait<T>(ddf0, ddf1, lambda);
+#	hclib::asyncAwait<T>(ddf0, ddf1, lambda);
 #}
 ####################################################
 
@@ -28,7 +28,7 @@ for (my $j=0; $j<$ARGV[0]; $j++) {
   		print ", DDF_t* ddf$i";
 	}
 	print ", T lambda) {\n";
-	print "\thcpp::asyncAwait<T>(";
+	print "\thclib::asyncAwait<T>(";
 
 	for (my $i=0; $i<=$j; $i++) {
   		print "ddf$i, ";

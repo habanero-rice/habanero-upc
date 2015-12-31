@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 namespace hupcpp {
-static __inline__ int hcpp_atomic_inc(volatile int *ptr) {
+static __inline__ int hclib_atomic_inc(volatile int *ptr) {
 	unsigned char c;
 	__asm__ __volatile__(
 
@@ -46,7 +46,7 @@ static __inline__ int hcpp_atomic_inc(volatile int *ptr) {
 	return c!= 0;
 }
 
-static __inline__ int hcpp_atomic_dec(volatile int *ptr) {
+static __inline__ int hclib_atomic_dec(volatile int *ptr) {
 	unsigned char rt;
 	__asm__ __volatile__(
 			"lock;\n"

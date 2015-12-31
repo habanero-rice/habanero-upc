@@ -40,7 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include<unistd.h>
 #include <sys/time.h>
 
-// never declare using namespace hcpp ... code will hang
+// never declare using namespace hclib ... code will hang
 using namespace upcxx;
 using namespace std;
 

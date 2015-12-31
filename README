@@ -36,7 +36,7 @@ EXECUTING TESTCASES
 =============================================
 
 1) Set the intra-place workers correctly:
-	export HCPP_WORKERS=N
+	export HCLIB_WORKERS=N
 
 2) For using HPT in Habanero-C++, use the README.md in Habanero-C++ repository
 

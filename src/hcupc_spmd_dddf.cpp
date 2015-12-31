@@ -292,7 +292,7 @@ inline void DDF_PUT_callback(int dest, int guid) {
 
 /*
  * This function is called from hupcpp::asyncAwait function.
- * This is called from inside the hcpp runtime and the list of
+ * This is called from inside the hclib runtime and the list of
  * ddf is passed to check if any of the ddf in the list is "DDDF" rather than a "DDF".
  * In case of DDDF, special treatment is ensured here in this function
  */

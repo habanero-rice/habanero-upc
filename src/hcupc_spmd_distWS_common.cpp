@@ -49,7 +49,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * removes inter-place failed steals, reduces idle time and also reduces total inter-place message exchanges
  *
  * To use BaselineWS set this environment varialbe before launching the runtime:
- * export HCPP_DIST_WS_BASELINE=1
+ * export HCLIB_DIST_WS_BASELINE=1
  * SuccessOnlyWS is the default implementation
  */
 
@@ -77,7 +77,7 @@ static int last_steal;	// place id of last victim
 
 #include "hcupc_spmd-random.h"
 
-//#define HCPP_DEBUG
+//#define HCLIB_DEBUG
 
 /*
  * End ------- Runtime control flags --------
@@ -263,8 +263,8 @@ bool received_tasks_from_victim() {
  * Distributed runtime initialization.
  */
 void initialize_distws_setOfThieves() {
-	if(getenv("HCPP_STEAL_N") != NULL) {
-		totalTasksStolenInOneShot = std::stod(getenv("HCPP_STEAL_N"));
+	if(getenv("HCLIB_STEAL_N") != NULL) {
+		totalTasksStolenInOneShot = std::stod(getenv("HCLIB_STEAL_N"));
 		HASSERT(totalTasksStolenInOneShot > 0);
 		if(totalTasksStolenInOneShot>1) {
 			HASSERT((totalTasksStolenInOneShot-(int)totalTasksStolenInOneShot) == 0);       // do not want something like 1.5
@@ -279,17 +279,17 @@ void initialize_distws_setOfThieves() {
 	if(MYTHREAD == 0) {
 #ifdef DIST_WS
 		cout << "---------DIST_WS_RUNTIME_INFO-----------" << endl;
-		if(getenv("HCPP_DIST_WS_BASELINE")) {
-			printf(">>> HCPP_DIST_WS_BASELINE\t\t= true\n");
+		if(getenv("HCLIB_DIST_WS_BASELINE")) {
+			printf(">>> HCLIB_DIST_WS_BASELINE\t\t= true\n");
 		}
 		else {
-			printf(">>> HCPP_DIST_WS_BASELINE\t\t= false\n");
+			printf(">>> HCLIB_DIST_WS_BASELINE\t\t= false\n");
 		}
 		if(totalTasksStolenInOneShot < 1) {
-			printf("WARNING (HCPP_STEAL_N): N should always be positive integer, setting it as 1\n");
+			printf("WARNING (HCLIB_STEAL_N): N should always be positive integer, setting it as 1\n");
 			totalTasksStolenInOneShot = 1;
 		}
-		printf(">>> HCPP_STEAL_N\t\t= %f\n",totalTasksStolenInOneShot);
+		printf(">>> HCLIB_STEAL_N\t\t= %f\n",totalTasksStolenInOneShot);
 		printf(">>> %s\n",vsdescript());
 		cout << "----------------------------------------" << endl;
 #endif
@@ -399,7 +399,7 @@ bool serve_pending_distSteal_request() {
 			// Steal task from computation workers
 			if(i>0 && idle_workers) break;
 			bool success = hclib::steal_fromComputeWorkers_forDistWS(&tasks[i]);
-			if(!success) break;	// never return from here as it will be bug in case HCPP_STEAL_N>1
+			if(!success) break;	// never return from here as it will be bug in case HCLIB_STEAL_N>1
 			increment_outgoing_tasks();
 		}
 
@@ -411,7 +411,7 @@ bool serve_pending_distSteal_request() {
 			const int thief = pop_thief();
 			HASSERT(thief >= 0);
 			// use upcxx::async to send task to requestor
-#ifdef HCPP_DEBUG
+#ifdef HCLIB_DEBUG
 			cout <<MYTHREAD << ": Sending " << i << " tasks to " << thief << endl;
 #endif
 			success_steals_stats();
@@ -465,7 +465,7 @@ bool serve_pending_distSteal_request_baseline() {
 			if(i>0 && idle_workers) break;
 			// Steal task from computation workers
 			bool success = hclib::steal_fromComputeWorkers_forDistWS(&tasks[i]);
-			if(!success) break;	// never return from here as it will be bug in case HCPP_STEAL_N>1
+			if(!success) break;	// never return from here as it will be bug in case HCLIB_STEAL_N>1
 			increment_outgoing_tasks();
 		}
 
@@ -475,7 +475,7 @@ bool serve_pending_distSteal_request_baseline() {
 
 
 			// use upcxx::async to send task to requestor
-#ifdef HCPP_DEBUG
+#ifdef HCLIB_DEBUG
 			cout <<MYTHREAD << ": Sending " << i << " tasks to " << requestor << endl;
 #endif
 			success_steals_stats();
@@ -570,14 +570,14 @@ bool search_tasks_globally() {
 
 			launch_upcxx_async<decltype(lambda)>(&lambda, v);
 
-#ifdef HCPP_DEBUG
+#ifdef HCLIB_DEBUG
 			cout <<MYTHREAD << ": Sending steal request to " << v << endl;
 #endif
 			victims_contacted++;
 
 			while(waiting_for_returnAsync) {
 				upcxx::advance();
-#ifdef HCPP_DEBUG
+#ifdef HCLIB_DEBUG
 				cout <<MYTHREAD << ": Waiting for return async"<< endl;
 #endif
 			}
@@ -617,13 +617,13 @@ inline int findwork_baseline() {
 				UNLOCK_REQ(v);
 
 				if (success) {
-#ifdef HCPP_DEBUG
+#ifdef HCLIB_DEBUG
 					cout <<MYTHREAD << ": Receiving tasks from " << v << endl;
 #endif
 					return v;
 				}
 				else {
-#ifdef HCPP_DEBUG
+#ifdef HCLIB_DEBUG
 					cout <<MYTHREAD << ": Failed to steal from " << v << endl;
 #endif
 					record_failedSteal_timeline();

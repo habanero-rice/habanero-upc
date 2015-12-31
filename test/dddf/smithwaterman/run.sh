@@ -8,7 +8,7 @@ if [ $# -ne 3 ]; then
 fi
 
 NODES=$1
-export HCPP_WORKERS=$2
+export HCLIB_WORKERS=$2
 SIZE=$3
 
 #SIZE=tiny

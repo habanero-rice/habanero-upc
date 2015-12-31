@@ -36,7 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace hupcpp {
 /*
- * The comm_async_task structure is similar to hcpp::crt_async_task, but redefining locally
+ * The comm_async_task structure is similar to hclib::crt_async_task, but redefining locally
  * here to achieve portability across OCR and CRT
  */
 
@@ -186,15 +186,15 @@ inline void asyncAny(T lambda) {
 	hcupc_asyncAny<T>(lambda);
 }
 
-inline void unwrap_asyncAny_task(hcpp::remoteAsyncAny_task task) {
+inline void unwrap_asyncAny_task(hclib::remoteAsyncAny_task task) {
 	(*task._fp)(task._args);
 }
 
-inline void unwrap_n_asyncAny_tasks(const hcpp::remoteAsyncAny_task* tasks, int count) {
+inline void unwrap_n_asyncAny_tasks(const hclib::remoteAsyncAny_task* tasks, int count) {
 	for(int j=0; j<count; j++) {
-		hcpp::remoteAsyncAny_task tmp;
-		memcpy((void*)&tmp, (void*)&tasks[j], sizeof(hcpp::remoteAsyncAny_task));
-		hcpp::async([tmp]() {
+		hclib::remoteAsyncAny_task tmp;
+		memcpy((void*)&tmp, (void*)&tasks[j], sizeof(hclib::remoteAsyncAny_task));
+		hclib::async([tmp]() {
 			unwrap_asyncAny_task(tmp);
 		});
 	}

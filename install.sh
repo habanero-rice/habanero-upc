@@ -16,9 +16,9 @@ echo "2) Disable Statistics and assertion checks"
 echo "  --enable-production"
 echo "========================================================================="
 
-#Flag to build without dependencies (i.e. just build HabaneroUPC++ and not HCPP)
+#Flag to build without dependencies (i.e. just build HabaneroUPC++ and not HCLIB)
 withoutDependencies=1
-# by default build everything (HCPP and HabaneroUPC++)
+# by default build everything (HCLIB and HabaneroUPC++)
 all=1
 if [ $# -ge 1 ]; then
   if [ $1 -eq ${withoutDependencies} ]; then
@@ -27,15 +27,15 @@ if [ $# -ge 1 ]; then
 fi
 
 if [ $all -eq 1 ]; then
-    echo "================== BUILDING HCPP ==================="
-    cd ${HCPP_BASE}
+    echo "================== BUILDING HCLIB ==================="
+    cd ${HCLIB_BASE}
     ./clobber.sh
     if [ -n "${HCUPC_FLAGS}" ]; then
-	echo "HCPP Build Flags: ${HCUPC_FLAGS} --enable-hupcpp"
-    	HCPP_FLAGS="${HCUPC_FLAGS} --enable-hupcpp" ./install.sh
+	echo "HCLIB Build Flags: ${HCUPC_FLAGS} --enable-hupcpp"
+    	HCLIB_FLAGS="${HCUPC_FLAGS} --enable-hupcpp" ./install.sh
     else
-	echo "HCPP Build Flags: --enable-hupcpp"
-    	HCPP_FLAGS="--enable-hupcpp" ./install.sh
+	echo "HCLIB Build Flags: --enable-hupcpp"
+    	HCLIB_FLAGS="--enable-hupcpp" ./install.sh
     fi 
 fi
 
@@ -136,7 +136,7 @@ if [ `echo ${HCUPC_FLAGS} | grep enable\-crtHalf | wc -l` -ne 0 ]; then
 	cp -f ${BASE}/inc/crtNoDistws/hcupc_spmd.mak ${INSTALL_DIR}/include/
 fi
 
-if [ `echo ${HCUPC_FLAGS} | grep enable\-hcpp | wc -l` -ne 0 ]; then
+if [ `echo ${HCUPC_FLAGS} | grep enable\-hclib | wc -l` -ne 0 ]; then
 	cp -f ${BASE}/inc/ocrHclib/hcupc_spmd.mak ${INSTALL_DIR}/include/
 fi
 

@@ -4,7 +4,7 @@ namespace hupcpp {
 #define DDF_GET_HOME(ddf) 			__ddfGetHome(ddf)
 
 /*
- * hcpp-ddf.h also contains the exact enum values
+ * hclib-ddf.h also contains the exact enum values
  */
 typedef enum DDDF_Kind {
 	DDF_KIND_UNKNOWN=0,

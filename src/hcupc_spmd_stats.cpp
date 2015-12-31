@@ -37,16 +37,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * Following types of statistics are available:
  *
  * 1) Timeline of failed steals:
- * 		- This is available only in the baseline implementation of disWS (env variable HCPP_DIST_WS_BASELINE = 1)
+ * 		- This is available only in the baseline implementation of disWS (env variable HCLIB_DIST_WS_BASELINE = 1)
  * 		- For a given place count, first run the benchmark couple of times to estimate the total execution time
  * 		- Then to estimate the total % of failed steals during 20 timesteps of total program execution rerun the
- * 		  benchmark with the following setting: export HCPP_APP_EXEC_TIME=<benchmark execution time in seconds>
+ * 		  benchmark with the following setting: export HCLIB_APP_EXEC_TIME=<benchmark execution time in seconds>
  * 		- Total number of timesteps can be changed using the macro MAX_TIMESTEPS
  *
  * 	2) Measurement of total idle time (search + termination detection time)
- * 	    - Rebuild hcpp after uncommenting this line in file hcpp/inc/hcpp-timer.h
+ * 	    - Rebuild hclib after uncommenting this line in file hclib/inc/hclib-timer.h
  * 	    	#define _TIMER_ON_
- * 	    - Rebuild hcpp (cd hcpp/compileTree; make clean; make install)
+ * 	    - Rebuild hclib (cd hclib/compileTree; make clean; make install)
  *
  *  3) Total inter-place message exchanges for distributed work-stealing: (assume total_success_steals = total inter-place
  *  		successful steals; total_failed_steals = total inter-place failed Steals)
@@ -132,7 +132,7 @@ void success_steals_stats() {
 
 // ----------------------STATISTICS FOR FAILED STEALS TIMELINE -----------------------------
 
-const static char* app_total_time_estimate = getenv("HCPP_APP_EXEC_TIME");
+const static char* app_total_time_estimate = getenv("HCLIB_APP_EXEC_TIME");
 // App execution time divided into total of 20 timesteps
 #define MAX_TIMESTEPS	20
 static double app_timesteps[MAX_TIMESTEPS];
@@ -155,7 +155,7 @@ void stats_initTimelineEvents() {
 			fail_steals_timeline[i] = 0;
 		}
 		if(MYTHREAD == 0) {
-			printf(">>> HCPP_APP_EXEC_TIME\t\t= %f seconds\n",app_tTotal);
+			printf(">>> HCLIB_APP_EXEC_TIME\t\t= %f seconds\n",app_tTotal);
 		}
 	}
 }
@@ -417,7 +417,7 @@ static void runtime_statistics(double duration) {
 		printf("------------------------------ End MMTk Statistics -----------------------------\n");
 		printf("===== TEST PASSED in %.3f msec =====\n",duration);
 	}
-	if(getenv("HCPP_DIST_WS_BASELINE")) {
+	if(getenv("HCLIB_DIST_WS_BASELINE")) {
 		showStats_failedSteals_timeline();
 	}
 #else // !DIST_WS

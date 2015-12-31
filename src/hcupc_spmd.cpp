@@ -209,7 +209,7 @@ inline int cbarrier_test() {
 void send_taskto_comm_worker(comm_async_task* task) {
 	// increment the finish counter
 	HASSERT(current_finish_counter);
-	hcpp_atomic_inc(current_finish_counter);
+	hclib_atomic_inc(current_finish_counter);
 	// push the task to deque maintained in hcupc
 	comm_task_push(task);
 }
@@ -240,16 +240,16 @@ inline void pop_execute_comm_task() {
 			(task._fp)(task._args);
 			// decrement finish counter
 			HASSERT(current_finish_counter);
-			hcpp_atomic_dec(current_finish_counter);
+			hclib_atomic_dec(current_finish_counter);
 		}
 	}
 }
 
 #ifdef DIST_WS
 
-const static char* baseline_distWS = getenv("HCPP_DIST_WS_BASELINE");
+const static char* baseline_distWS = getenv("HCLIB_DIST_WS_BASELINE");
 
-void hcpp_finish_barrier_distWS() {
+void hclib_finish_barrier_distWS() {
 	int status = NO_TERM;
 
 	hupcpp::barrier();
@@ -299,7 +299,7 @@ void hcpp_finish_barrier_distWS() {
 	hupcpp::barrier();
 }
 
-void hcpp_finish_barrier_baseline_distWS() {
+void hclib_finish_barrier_baseline_distWS() {
 	int status = NO_TERM;
 
 	hupcpp::barrier();
@@ -345,18 +345,18 @@ void hcpp_finish_barrier_baseline_distWS() {
 	hupcpp::barrier();
 }
 
-void hcpp_finish_barrier() {
+void hclib_finish_barrier() {
 	if(baseline_distWS) {
-		hcpp_finish_barrier_baseline_distWS();
+		hclib_finish_barrier_baseline_distWS();
 	}
 	else {
-		hcpp_finish_barrier_distWS();
+		hclib_finish_barrier_distWS();
 	}
 }
 
 #else
 
-void hcpp_finish_barrier() {
+void hclib_finish_barrier() {
 	int status = NO_TERM;
 
 	hupcpp::barrier();
@@ -430,7 +430,7 @@ void finish_spmd(std::function<void()> lambda) {
 		 * pops the tasks as necessary.
 		 */
 		auto comm_lambda_finish = [=] () {
-			hcpp_finish_barrier();
+			hclib_finish_barrier();
 		};
 		asyncComm(comm_lambda_finish);
 	}
