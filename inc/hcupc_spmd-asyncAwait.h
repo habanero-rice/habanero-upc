@@ -34,82 +34,82 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 template <typename T>
-void asyncAwait(DDF_t* ddf0, T lambda) {
-	hclib::asyncAwait<T>(ddf0, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, T lambda) {
+	hclib::asyncAwait<T>(promise0, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, DDF_t* ddf9, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, ddf9, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, hupcpp::promise_t* promise9, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, DDF_t* ddf9, DDF_t* ddf10, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, ddf9, ddf10, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, hupcpp::promise_t* promise9, hupcpp::promise_t* promise10, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, promise10, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, DDF_t* ddf9, DDF_t* ddf10, DDF_t* ddf11, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, ddf9, ddf10, ddf11, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, hupcpp::promise_t* promise9, hupcpp::promise_t* promise10, hupcpp::promise_t* promise11, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, promise10, promise11, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, DDF_t* ddf9, DDF_t* ddf10, DDF_t* ddf11, DDF_t* ddf12, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, ddf9, ddf10, ddf11, ddf12, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, hupcpp::promise_t* promise9, hupcpp::promise_t* promise10, hupcpp::promise_t* promise11, hupcpp::promise_t* promise12, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, promise10, promise11, promise12, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, DDF_t* ddf9, DDF_t* ddf10, DDF_t* ddf11, DDF_t* ddf12, DDF_t* ddf13, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, ddf9, ddf10, ddf11, ddf12, ddf13, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, hupcpp::promise_t* promise9, hupcpp::promise_t* promise10, hupcpp::promise_t* promise11, hupcpp::promise_t* promise12, hupcpp::promise_t* promise13, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, promise10, promise11, promise12, promise13, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, DDF_t* ddf9, DDF_t* ddf10, DDF_t* ddf11, DDF_t* ddf12, DDF_t* ddf13, DDF_t* ddf14, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, ddf9, ddf10, ddf11, ddf12, ddf13, ddf14, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, hupcpp::promise_t* promise9, hupcpp::promise_t* promise10, hupcpp::promise_t* promise11, hupcpp::promise_t* promise12, hupcpp::promise_t* promise13, hupcpp::promise_t* promise14, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, promise10, promise11, promise12, promise13, promise14, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, DDF_t* ddf9, DDF_t* ddf10, DDF_t* ddf11, DDF_t* ddf12, DDF_t* ddf13, DDF_t* ddf14, DDF_t* ddf15, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, ddf9, ddf10, ddf11, ddf12, ddf13, ddf14, ddf15, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, hupcpp::promise_t* promise9, hupcpp::promise_t* promise10, hupcpp::promise_t* promise11, hupcpp::promise_t* promise12, hupcpp::promise_t* promise13, hupcpp::promise_t* promise14, hupcpp::promise_t* promise15, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, promise10, promise11, promise12, promise13, promise14, promise15, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, DDF_t* ddf9, DDF_t* ddf10, DDF_t* ddf11, DDF_t* ddf12, DDF_t* ddf13, DDF_t* ddf14, DDF_t* ddf15, DDF_t* ddf16, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, ddf9, ddf10, ddf11, ddf12, ddf13, ddf14, ddf15, ddf16, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, hupcpp::promise_t* promise9, hupcpp::promise_t* promise10, hupcpp::promise_t* promise11, hupcpp::promise_t* promise12, hupcpp::promise_t* promise13, hupcpp::promise_t* promise14, hupcpp::promise_t* promise15, hupcpp::promise_t* promise16, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, promise10, promise11, promise12, promise13, promise14, promise15, promise16, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, DDF_t* ddf9, DDF_t* ddf10, DDF_t* ddf11, DDF_t* ddf12, DDF_t* ddf13, DDF_t* ddf14, DDF_t* ddf15, DDF_t* ddf16, DDF_t* ddf17, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, ddf9, ddf10, ddf11, ddf12, ddf13, ddf14, ddf15, ddf16, ddf17, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, hupcpp::promise_t* promise9, hupcpp::promise_t* promise10, hupcpp::promise_t* promise11, hupcpp::promise_t* promise12, hupcpp::promise_t* promise13, hupcpp::promise_t* promise14, hupcpp::promise_t* promise15, hupcpp::promise_t* promise16, hupcpp::promise_t* promise17, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, promise10, promise11, promise12, promise13, promise14, promise15, promise16, promise17, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, DDF_t* ddf9, DDF_t* ddf10, DDF_t* ddf11, DDF_t* ddf12, DDF_t* ddf13, DDF_t* ddf14, DDF_t* ddf15, DDF_t* ddf16, DDF_t* ddf17, DDF_t* ddf18, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, ddf9, ddf10, ddf11, ddf12, ddf13, ddf14, ddf15, ddf16, ddf17, ddf18, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, hupcpp::promise_t* promise9, hupcpp::promise_t* promise10, hupcpp::promise_t* promise11, hupcpp::promise_t* promise12, hupcpp::promise_t* promise13, hupcpp::promise_t* promise14, hupcpp::promise_t* promise15, hupcpp::promise_t* promise16, hupcpp::promise_t* promise17, hupcpp::promise_t* promise18, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, promise10, promise11, promise12, promise13, promise14, promise15, promise16, promise17, promise18, lambda);
 }
 template <typename T>
-void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, DDF_t* ddf2, DDF_t* ddf3, DDF_t* ddf4, DDF_t* ddf5, DDF_t* ddf6, DDF_t* ddf7, DDF_t* ddf8, DDF_t* ddf9, DDF_t* ddf10, DDF_t* ddf11, DDF_t* ddf12, DDF_t* ddf13, DDF_t* ddf14, DDF_t* ddf15, DDF_t* ddf16, DDF_t* ddf17, DDF_t* ddf18, DDF_t* ddf19, T lambda) {
-	hclib::asyncAwait<T>(ddf0, ddf1, ddf2, ddf3, ddf4, ddf5, ddf6, ddf7, ddf8, ddf9, ddf10, ddf11, ddf12, ddf13, ddf14, ddf15, ddf16, ddf17, ddf18, ddf19, lambda);
+void asyncAwait(hupcpp::promise_t* promise0, hupcpp::promise_t* promise1, hupcpp::promise_t* promise2, hupcpp::promise_t* promise3, hupcpp::promise_t* promise4, hupcpp::promise_t* promise5, hupcpp::promise_t* promise6, hupcpp::promise_t* promise7, hupcpp::promise_t* promise8, hupcpp::promise_t* promise9, hupcpp::promise_t* promise10, hupcpp::promise_t* promise11, hupcpp::promise_t* promise12, hupcpp::promise_t* promise13, hupcpp::promise_t* promise14, hupcpp::promise_t* promise15, hupcpp::promise_t* promise16, hupcpp::promise_t* promise17, hupcpp::promise_t* promise18, hupcpp::promise_t* promise19, T lambda) {
+	hclib::asyncAwait<T>(promise0, promise1, promise2, promise3, promise4, promise5, promise6, promise7, promise8, promise9, promise10, promise11, promise12, promise13, promise14, promise15, promise16, promise17, promise18, promise19, lambda);
 }

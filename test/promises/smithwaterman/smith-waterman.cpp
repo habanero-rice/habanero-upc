@@ -11,8 +11,8 @@
 #define TRACE 0
 #define debug 0
 
-#define DDF_SIZE(guid) size_distribution_function( guid, tag_offset, inner_tile_width, inner_tile_height )
-#define DDF_HOME(guid) row_cyclic_distribution_function (guid, tag_offset, j_domain, n_inner_tiles_height,nproc)
+#define PROMISE_SIZE(guid) size_distribution_function( guid, tag_offset, inner_tile_width, inner_tile_height )
+#define PROMISE_HOME(guid) row_cyclic_distribution_function (guid, tag_offset, j_domain, n_inner_tiles_height,nproc)
 
 enum Nucleotide {GAP=0, ADENINE, CYTOSINE, GUANINE, THYMINE};
 
@@ -82,9 +82,9 @@ signed char* read_file( FILE* file, size_t* n_chars ) {
 }
 
 typedef struct {
-	hupcpp::DDF_t* bottom_row;
-	hupcpp::DDF_t* right_column;
-	hupcpp::DDF_t* bottom_right;
+	hupcpp::promise_t* bottom_row;
+	hupcpp::promise_t* right_column;
+	hupcpp::promise_t* bottom_right;
 } Tile_t;
 
 static int size_distribution_function( int guid, int tag_offset, int tile_width, int tile_height ) {
@@ -328,15 +328,15 @@ int main ( int argc, char* argv[] ) {
 	    	tile_matrix[i] = (Tile_t *) malloc(sizeof(Tile_t)*j_domain);
 	    	for ( j = 0; j < j_domain; ++j ) {
                 // HANDLE should allocate on owner, return a local copy others
-	    		tile_matrix[i][j].bottom_row   = hupcpp::DDF_HANDLE(
+	    		tile_matrix[i][j].bottom_row   = hupcpp::PROMISE_HANDLE(
                         BOTTOM * tag_offset + i*j_domain + j ); 
-	    		tile_matrix[i][j].right_column = hupcpp::DDF_HANDLE(
+	    		tile_matrix[i][j].right_column = hupcpp::PROMISE_HANDLE(
                         RIGHT * tag_offset + i*j_domain + j );
-	    		tile_matrix[i][j].bottom_right = hupcpp::DDF_HANDLE(
+	    		tile_matrix[i][j].bottom_right = hupcpp::PROMISE_HANDLE(
                         DIAG * tag_offset + i*j_domain + j );
-	    		assert( sizeof(int)*1 == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_right)->count);
-	    		assert( sizeof(int)*inner_tile_width == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_row)->count );
-	    		assert( sizeof(int)*inner_tile_height == ((hupcpp::DDDF_t*)tile_matrix[i][j].right_column)->count );
+	    		assert( sizeof(int)*1 == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_right)->count);
+	    		assert( sizeof(int)*inner_tile_width == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_row)->count );
+	    		assert( sizeof(int)*inner_tile_height == ((hupcpp::dpromise_t*)tile_matrix[i][j].right_column)->count );
 	    	}
 	    }
 
@@ -347,64 +347,64 @@ int main ( int argc, char* argv[] ) {
 	    if (debug) fprintf(stderr, "i_domain: %d j_domain: %d\n", i_domain, j_domain);
 	    i = 0;
 	    j = 0;
-	    if ( rank == DDF_HOME(i*j_domain + j) ) {
+	    if ( rank == PROMISE_HOME(i*j_domain + j) ) {
 	    	if (debug) fprintf(stderr, "rank:%d put [%d][%d]\n", rank,i,j);
 	    	int* allocated = (int*)malloc(sizeof(int));
 	    	allocated[0] = 0;
 	    	if(TRACE) fprintf(stderr, "Put item [tile_matrix: [%d, %d, %d]]\n",DIAG, i,j);
-	    	hupcpp::DDF_PUT(tile_matrix[i][j].bottom_right, allocated);
-	    	assert( rank == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_right)->home_rank );
-	    	assert( sizeof(int)*1 == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_right)->count);
+	    	hupcpp::PROMISE_PUT(tile_matrix[i][j].bottom_right, allocated);
+	    	assert( rank == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_right)->home_rank );
+	    	assert( sizeof(int)*1 == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_right)->count);
 	    }
 
 	    i = 0;
 	    for ( j = 1; j < j_domain; ++j ) {
-	    	if ( rank == DDF_HOME(i*j_domain + j) )  {
+	    	if ( rank == PROMISE_HOME(i*j_domain + j) )  {
 	    		if (debug) fprintf(stderr, "j-loop rank:%d put [%d][%d]\n", rank,i,j);
 	    		int* allocated = (int*)malloc(sizeof(int)*inner_tile_width);
 	    		for( index = 0; index < inner_tile_width; ++index ) {
 	    			allocated[index] = GAP_PENALTY*((j-1)*inner_tile_width+index+1);
 	    		}
 	    		if(TRACE) fprintf(stderr, "Put item [tile_matrix: [%d, %d, %d]]\n",BOTTOM,i,j);
-	    		hupcpp::DDF_PUT(tile_matrix[i][j].bottom_row, allocated);
-	    		assert( rank == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_row)->home_rank );
-	    		assert( sizeof(int)*inner_tile_width == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_row)->count );
+	    		hupcpp::PROMISE_PUT(tile_matrix[i][j].bottom_row, allocated);
+	    		assert( rank == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_row)->home_rank );
+	    		assert( sizeof(int)*inner_tile_width == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_row)->count );
 	    	}
 
-	    	if ( rank == DDF_HOME(i*j_domain + j) )  {
+	    	if ( rank == PROMISE_HOME(i*j_domain + j) )  {
 	    		if (debug) fprintf(stderr, "j-loop rank:%d put [%d][%d]\n", rank,i,j);
 	    		int* allocated = (int*)malloc(sizeof(int));
 	    		allocated[0] = GAP_PENALTY*(j*inner_tile_width);
 	    		if(TRACE) fprintf(stderr, "Put item [tile_matrix: [%d, %d, %d]]\n",DIAG,i,j);
-	    		hupcpp::DDF_PUT(tile_matrix[i][j].bottom_right, allocated);
-	    		assert( rank == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_right)->home_rank );
-	    		assert( sizeof(int)*1 == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_right)->count);
+	    		hupcpp::PROMISE_PUT(tile_matrix[i][j].bottom_right, allocated);
+	    		assert( rank == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_right)->home_rank );
+	    		assert( sizeof(int)*1 == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_right)->count);
 	    	}
 	    }
 
 	    j = 0;
 	    for ( i = 1; i < i_domain; ++i ) {
-	    	if ( rank == DDF_HOME(i*j_domain + j) ) {
+	    	if ( rank == PROMISE_HOME(i*j_domain + j) ) {
 	    		if (debug) fprintf(stderr, "i-loop rank:%d put [%d][%d]\n", rank,i,j);
 	    		int* allocated = (int*)malloc(sizeof(int)*inner_tile_height);
 	    		for ( index = 0; index < inner_tile_height ; ++index ) {
 	    			allocated[index] = GAP_PENALTY*((i-1)*inner_tile_height+index+1);
 	    		}
 	    		if(TRACE) fprintf(stderr, "Put item [tile_matrix: [%d, %d, %d]]\n",RIGHT,i,j);
-	    		hupcpp::DDF_PUT(tile_matrix[i][j].right_column, allocated);
-	    		if (debug) fprintf(stderr, "i-loop rank:%d home_rank:%d \n", rank, ((hupcpp::DDDF_t*)tile_matrix[i][j].right_column)->home_rank);
-	    		assert( rank == ((hupcpp::DDDF_t*)tile_matrix[i][j].right_column)->home_rank );
-	    		assert( sizeof(int)*inner_tile_height == ((hupcpp::DDDF_t*)tile_matrix[i][j].right_column)->count );
+	    		hupcpp::PROMISE_PUT(tile_matrix[i][j].right_column, allocated);
+	    		if (debug) fprintf(stderr, "i-loop rank:%d home_rank:%d \n", rank, ((hupcpp::dpromise_t*)tile_matrix[i][j].right_column)->home_rank);
+	    		assert( rank == ((hupcpp::dpromise_t*)tile_matrix[i][j].right_column)->home_rank );
+	    		assert( sizeof(int)*inner_tile_height == ((hupcpp::dpromise_t*)tile_matrix[i][j].right_column)->count );
 	    	}
 
-	    	if ( rank == DDF_HOME(i*j_domain + j) )  {
+	    	if ( rank == PROMISE_HOME(i*j_domain + j) )  {
 	    		if (debug) fprintf(stderr, "i-loop rank:%d put [%d][%d]\n", rank,i,j);
 	    		int* allocated = (int*)malloc(sizeof(int));
 	    		allocated[0] = GAP_PENALTY*(i*inner_tile_height);
 	    		if(TRACE) fprintf(stderr, "Put item [tile_matrix: [%d, %d, %d]]\n",DIAG, i,j);
-	    		hupcpp::DDF_PUT(tile_matrix[i][j].bottom_right, allocated);
-	    		assert( rank == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_right)->home_rank );
-	    		assert( sizeof(int)*1 == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_right)->count );
+	    		hupcpp::PROMISE_PUT(tile_matrix[i][j].bottom_right, allocated);
+	    		assert( rank == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_right)->home_rank );
+	    		assert( sizeof(int)*1 == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_right)->count );
 	    	}
 	    }
 
@@ -418,7 +418,7 @@ int main ( int argc, char* argv[] ) {
 	    hupcpp::finish_spmd([=]() {
 	    	for (int i = 1; i < i_domain; ++i ) {
 	    		for (int j = 1; j < j_domain; ++j ) {
-	    			if ( rank == DDF_HOME(i*j_domain+j) ) {
+	    			if ( rank == PROMISE_HOME(i*j_domain+j) ) {
 	    				if (debug) fprintf(stderr, "before rank:%d entered [%d][%d]\n", rank ,i,j);
 	    				if (debug) fprintf(stderr, "[%p][%p][%p]\n", tile_matrix[i][j-1].right_column,tile_matrix[i-1][j].bottom_row,tile_matrix[i-1][j-1].bottom_right );
 	    				hupcpp::asyncAwait(tile_matrix[i][j-1].right_column, tile_matrix[i-1][j].bottom_row, tile_matrix[i-1][j-1].bottom_right, [=]() {
@@ -431,9 +431,9 @@ int main ( int argc, char* argv[] ) {
 	    					if(TRACE) fprintf(stderr, "Get item [tile_matrix: [%d, %d, %d]]\n",BOTTOM,i-1,j);
 	    					if(TRACE) fprintf(stderr, "Get item [tile_matrix: [%d, %d, %d]]\n",RIGHT,i,j-1);
 	    					if(TRACE) fprintf(stderr, "Get item [tile_matrix: [%d, %d, %d]]\n",DIAG,i-1,j-1);
-	    					int* above_tile_bottom_row = (int*)hupcpp::DDF_GET(tile_matrix[i-1][j].bottom_row);
-	    					int* left_tile_right_column = (int*)hupcpp::DDF_GET(tile_matrix[i][j-1].right_column);
-	    					int* diagonal_tile_bottom_right = (int*)hupcpp::DDF_GET(tile_matrix[i-1][j-1].bottom_right);
+	    					int* above_tile_bottom_row = (int*)hupcpp::PROMISE_GET(tile_matrix[i-1][j].bottom_row);
+	    					int* left_tile_right_column = (int*)hupcpp::PROMISE_GET(tile_matrix[i][j-1].right_column);
+	    					int* diagonal_tile_bottom_right = (int*)hupcpp::PROMISE_GET(tile_matrix[i-1][j-1].bottom_right);
 
 	    					if (debug) fprintf(stderr,  "rank:%d, milestone 2\n",rank);
 	    					int  * curr_tile_tmp = (int*) malloc(sizeof(int)*(1+inner_tile_width)*(1+inner_tile_height));
@@ -471,27 +471,27 @@ int main ( int argc, char* argv[] ) {
 	    					int* curr_bottom_right = (int*)malloc(sizeof(int));
 	    					curr_bottom_right[0] = curr_tile[inner_tile_height][inner_tile_width];
 	    					if(TRACE) fprintf(stderr, "Put item [tile_matrix: [%d, %d, %d]]\n",DIAG, i,j);
-	    					hupcpp::DDF_PUT(tile_matrix[i][j].bottom_right, curr_bottom_right);
-	    					assert( rank == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_right)->home_rank );
-	    					assert( sizeof(int)*1 == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_right)->count );
+	    					hupcpp::PROMISE_PUT(tile_matrix[i][j].bottom_right, curr_bottom_right);
+	    					assert( rank == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_right)->home_rank );
+	    					assert( sizeof(int)*1 == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_right)->count );
 
 	    					int* curr_right_column = (int*)malloc(sizeof(int)*inner_tile_height);
 	    					for ( index = 0; index < inner_tile_height; ++index ) {
 	    						curr_right_column[index] = curr_tile[index+1][inner_tile_width];
 	    					}
 	    					if(TRACE) fprintf(stderr, "Put item [tile_matrix: [%d, %d, %d]]\n",RIGHT,i,j);
-	    					hupcpp::DDF_PUT(tile_matrix[i][j].right_column, curr_right_column);
-	    					assert( rank == ((hupcpp::DDDF_t*)tile_matrix[i][j].right_column)->home_rank );
-	    					assert( sizeof(int)*inner_tile_height == ((hupcpp::DDDF_t*)tile_matrix[i][j].right_column)->count );
+	    					hupcpp::PROMISE_PUT(tile_matrix[i][j].right_column, curr_right_column);
+	    					assert( rank == ((hupcpp::dpromise_t*)tile_matrix[i][j].right_column)->home_rank );
+	    					assert( sizeof(int)*inner_tile_height == ((hupcpp::dpromise_t*)tile_matrix[i][j].right_column)->count );
 
 	    					int* curr_bottom_row = (int*)malloc(sizeof(int)*inner_tile_width);
 	    					for ( index = 0; index < inner_tile_width; ++index ) {
 	    						curr_bottom_row[index] = curr_tile[inner_tile_height][index+1];
 	    					}
 	    					if(TRACE) fprintf(stderr, "Put item [tile_matrix: [%d, %d, %d]]\n",BOTTOM,i,j);
-	    					hupcpp::DDF_PUT(tile_matrix[i][j].bottom_row, curr_bottom_row);
-	    					assert( rank == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_row)->home_rank );
-	    					assert( sizeof(int)*inner_tile_width == ((hupcpp::DDDF_t*)tile_matrix[i][j].bottom_row)->count );
+	    					hupcpp::PROMISE_PUT(tile_matrix[i][j].bottom_row, curr_bottom_row);
+	    					assert( rank == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_row)->home_rank );
+	    					assert( sizeof(int)*inner_tile_width == ((hupcpp::dpromise_t*)tile_matrix[i][j].bottom_row)->count );
 
 	    					free(curr_tile);
 	    					free(curr_tile_tmp);
@@ -509,8 +509,8 @@ int main ( int argc, char* argv[] ) {
 
 	    }
 
-	    if ( rank == DDF_HOME(j_domain-1+j_domain*(i_domain-1)) ) {
-	    	int score = ((int *)hupcpp::DDF_GET(tile_matrix[i_domain-1][j_domain-1].bottom_row))[inner_tile_width-1];
+	    if ( rank == PROMISE_HOME(j_domain-1+j_domain*(i_domain-1)) ) {
+	    	int score = ((int *)hupcpp::PROMISE_GET(tile_matrix[i_domain-1][j_domain-1].bottom_row))[inner_tile_width-1];
 	    	printf( "score: %d\n", score);
 	    }
     });

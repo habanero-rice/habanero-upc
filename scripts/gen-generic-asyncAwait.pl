@@ -10,28 +10,28 @@ if($#ARGV != 0) {
 }
 ####################################################
 #template <typename T>
-#void asyncAwait(DDF_t* ddf0, T lambda) {
-#	hclib::asyncAwait<T>(ddf0, lambda);
+#void asyncAwait(promise_t* promise0, T lambda) {
+#	hclib::asyncAwait<T>(promise0, lambda);
 #}
 #template <typename T>
-#void asyncAwait(DDF_t* ddf0, DDF_t* ddf1, T lambda) {
-#	hclib::asyncAwait<T>(ddf0, ddf1, lambda);
+#void asyncAwait(promise_t* promise0, promise_t* promise1, T lambda) {
+#	hclib::asyncAwait<T>(promise0, promise1, lambda);
 #}
 ####################################################
 
 for (my $j=0; $j<$ARGV[0]; $j++) {
 	print "template <typename T>\n";
-	print "void asyncAwait(DDF_t* ddf0";
+	print "void asyncAwait(promise_t* promise0";
 
-	#Printing the DDF_t parameters
+	#Printing the promise_t parameters
 	for (my $i=1; $i<=$j; $i++) {
-  		print ", DDF_t* ddf$i";
+  		print ", promise_t* promise$i";
 	}
 	print ", T lambda) {\n";
 	print "\thclib::asyncAwait<T>(";
 
 	for (my $i=0; $i<=$j; $i++) {
-  		print "ddf$i, ";
+  		print "promise$i, ";
 	}
 
 	print "lambda);\n}\n";

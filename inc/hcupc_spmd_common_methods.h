@@ -44,5 +44,5 @@ void launch(int *argc, char ***argv, std::function<void()> lambda);
 
 void showStatsHeader();
 void showStatsFooter();
-void dddf_register_callback(DDF_t** ddf_list);
+void dpromise_register_callback(promise_t** promise_list);
 }

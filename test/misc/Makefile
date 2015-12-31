@@ -1,13 +1,13 @@
 include $(HABANERO_UPC_ROOT)/include/hcupc_spmd.mak
 
-EXE=test test2 test_ddf arrayadd1d
+EXE=test test2 test_promise arrayadd1d
 
 all: clean $(EXE) clean-obj
 
-test_ddf.o: test_ddf.cpp
+test_promise.o: test_promise.cpp
 	$(CXX) $(PROJECT_CXXFLAGS) -c $^
 
-test_ddf: test_ddf.o
+test_promise: test_promise.o
 	$(CXX_LINKER) $(PROJECT_LDFLAGS) -o $@ $^ $(PROJECT_LDLIBS)
 
 test2.o: test2.cpp

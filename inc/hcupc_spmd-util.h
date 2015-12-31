@@ -38,4 +38,4 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <upcxx.h>
 #include "hcupc_spmd_common_methods.h"
 #include "hcupc_spmd-commTask.h"
-#include "hcupc_spmd-dddf.h"
+#include "hcupc_spmd-distributed-promise.h"

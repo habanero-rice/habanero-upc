@@ -46,11 +46,12 @@ static bool hc_workers_initialized = false;
 volatile int* current_finish_counter = NULL;
 
 extern "C" {
-extern void (*hclib_dddf_register_callback)(hclib_ddf_t** ddf_list);
+extern void (*hclib_distributed_promise_register_callback)(
+        hclib_promise_t** promise_list);
 }
 
 void launch(int *argc, char ***argv, std::function<void()> lambda) {
-    hclib_dddf_register_callback = dddf_register_callback;
+    hclib_distributed_promise_register_callback = dpromise_register_callback;
 
     hclib::launch(argc, *argv, [=]() {
             upcxx::init(argc, argv);

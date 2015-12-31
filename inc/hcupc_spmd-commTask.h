@@ -161,20 +161,20 @@ inline void asyncAt(int p, T lambda) {
 	allocate_comm_task<decltype(lambda2)>(lambda2);
 }
 
-inline void async_after_asyncCopy(void* ddf) {
+inline void async_after_asyncCopy(void* promise) {
 	queue_source_place_of_remoteTask(MYTHREAD);
-	if(ddf) {
-		register_incoming_async_ddf(ddf);
+	if(promise) {
+		register_incoming_async_promise(promise);
 	}
 }
 
 template <typename T>
-inline void asyncCopy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> dst, size_t count, DDF_t* ddf=NULL) {
+inline void asyncCopy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> dst, size_t count, promise_t* promise=NULL) {
 	auto lambda = [=]() {
 		upcxx::event* e = get_upcxx_event();
 		HASSERT(e != NULL);
 		upcxx::async_copy(src, dst, count, e);
-		upcxx::async_after(MYTHREAD, e, NULL)(async_after_asyncCopy, (void*)ddf);
+		upcxx::async_after(MYTHREAD, e, NULL)(async_after_asyncCopy, (void*)promise);
 	};
 	allocate_comm_task<decltype(lambda)>(lambda);
 }

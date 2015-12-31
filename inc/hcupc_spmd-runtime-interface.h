@@ -37,23 +37,23 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace hupcpp {
 
-typedef	hclib::ddf_t  DDF_t;
+typedef	hclib::promise_t  promise_t;
 typedef	hclib::ddt_t  DDT_t;
 
-inline DDF_t* ddf_create() {
-	return hclib::ddf_create();
+inline promise_t* promise_create() {
+	return hclib::promise_create();
 }
 
-inline DDF_t ** ddf_create_n(size_t nb_ddfs, int null_terminated) {
-	return hclib::ddf_create_n(nb_ddfs, null_terminated);
+inline promise_t ** promise_create_n(size_t nb_promises, int null_terminated) {
+	return hclib::promise_create_n(nb_promises, null_terminated);
 }
 
-inline void ddf_free(DDF_t * ddf) {
-	hclib::ddf_free(ddf);
+inline void promise_free(promise_t * promise) {
+	hclib::promise_free(promise);
 }
 
-inline void * ddf_get(DDF_t * ddf) {
-	return hclib::ddf_get(ddf);
+inline void * promise_get(promise_t * promise) {
+	return hclib::promise_get(promise);
 }
 
 #include "hcupc_spmd-asyncAwait.h"
@@ -70,12 +70,12 @@ inline int get_hc_wid() {
 	return hclib::current_worker();
 }
 
-inline void register_incoming_async_ddf(void* d) {
+inline void register_incoming_async_promise(void* d) {
 	if(d) {
-		DDF_t * ddf = (DDF_t *) d;
+		promise_t * promise = (promise_t *) d;
 		int* tmp = new int;
 		*tmp = 10;
-		hclib::ddf_put(ddf, (void*)tmp);
+		hclib::promise_put(promise, (void*)tmp);
 	}
 }
 

@@ -5,7 +5,7 @@ using namespace upcxx;
 int main(int argc, char **argv)
 {
   hupcpp::init(&argc, &argv);
-  // Test asyncCopy + DDF
+  // Test asyncCopy + promise
   global_ptr<double> src, dst;
   size_t sz = 1024*1024;
   src = allocate<double>((myrank()+1)%THREADS, sz);
@@ -16,11 +16,11 @@ int main(int argc, char **argv)
   dst[sz-1] = 0.0;
   printf("Rank %d starts asyncCopy...\n", MYTHREAD);
 
-  hupcpp::DDF_t* ddf = hupcpp::ddf_create();
+  hupcpp::promise_t* promise = hupcpp::promise_create();
   auto f = [](){ std::cout << MYTHREAD << ":" << hupcpp::get_hc_wid() << "--> Hello ! DDF_PUT has been done !!" << std::endl;};
   hupcpp::finish_spmd([=]() {
-    hupcpp::asyncAwait(ddf, [=]() { f(); });
-    hupcpp::asyncCopy(src, dst, sz, ddf);
+    hupcpp::asyncAwait(promise, [=]() { f(); });
+    hupcpp::asyncCopy(src, dst, sz, promise);
   });
  
   printf("Rank %d finishes asyncCopy, src[%lu] = %f, dst[%lu] = %f\n",
