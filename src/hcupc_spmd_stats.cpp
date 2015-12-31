@@ -294,7 +294,7 @@ static void runtime_statistics(double duration) {
 	steal_ind_myPlace.init(THREADS);
 
 	int c1, c2, c3;
-	hcpp::gather_commWorker_Stats(&c1, &c2, &c3);
+	hclib::gather_comm_worker_stats(&c1, &c2, &c3);
 
 	push_outd_myPlace[MYTHREAD] = c1;
 	push_ind_myPlace[MYTHREAD] = c2;
@@ -355,7 +355,7 @@ static void runtime_statistics(double duration) {
 	tOvh_i.init(THREADS);
 	tSearch_i.init(THREADS);
 	double tWork, tOvh, tSearch;
-	hcpp::hcpp_getAvgTime (&tWork, &tOvh, &tSearch);
+	hclib::get_avg_time(&tWork, &tOvh, &tSearch);
 	tWork_i[MYTHREAD] = tWork;
 	tOvh_i[MYTHREAD] = tOvh;
 	tSearch_i[MYTHREAD] = tSearch;

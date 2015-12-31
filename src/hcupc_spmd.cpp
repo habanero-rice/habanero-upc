@@ -45,16 +45,20 @@ static int hc_workers;
 static bool hc_workers_initialized = false;
 volatile int* current_finish_counter = NULL;
 
-void init(int * argc, char *** argv) {
-        hcpp::init(argc, *argv, dddf_register_callback);
-        upcxx::init(argc, argv);
-        hupcpp::showStatsHeader();
+extern "C" {
+extern void (*hclib_dddf_register_callback)(hclib_ddf_t** ddf_list);
 }
 
-void finalize() {
-        hupcpp::showStatsFooter();
-        upcxx::finalize();
-        hcpp::finalize();
+void launch(int *argc, char ***argv, std::function<void()> lambda) {
+    hclib_dddf_register_callback = dddf_register_callback;
+
+    hclib::launch(argc, *argv, [=]() {
+            upcxx::init(argc, argv);
+            hupcpp::showStatsHeader();
+            lambda();
+            hupcpp::showStatsFooter();
+            upcxx::finalize();
+        });
 }
 
 void initialize_hcWorker() {
@@ -159,7 +163,7 @@ void cb_init() {
 	cb_done = 0;
 	CB_UNLOCK;
 #ifdef DIST_WS
-	hcpp::registerHCUPC_callback(&idle_workers);
+	hclib::registerHCUPC_callback(&idle_workers);
 	idle_workers_threshold = hc_workers > 12 ? 2 : 0;	// heuristic for 24 core edison node only !!!
 #endif
 }
@@ -405,7 +409,7 @@ void finish_spmd(std::function<void()> lambda) {
 	hupcpp::barrier();
 	const bool comm_worker = true;//hc_workers > 1 && THREADS > 1;
 
-	current_finish_counter = hcpp::start_finish_special();
+	current_finish_counter = hclib::start_finish_special();
 
 	// launch async tasks in immediate scopr of the finish_spmd in user program
 	lambda();
@@ -434,7 +438,7 @@ void finish_spmd(std::function<void()> lambda) {
 	/*
 	 * this finish will end only if all the local and remote tasks terminates
 	 */
-	end_finish();
+    hclib::end_finish();
 	free_upcxx_event_list();
 	end_finish_spmd_timer();
 }

@@ -83,9 +83,8 @@ inline upcxx::event* _asyncCopy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> d
 DDF_t* __ddfHandle( int gid, int hid, size_t size) {
 	/*
 	 * We are calling upcxx::allocate hence we do it only
-	 * on the comm_worker which is wid=0
+	 * on the comm_worker
 	 */
-	HASSERT(get_hc_wid() == 0);
 	HASSERT(size > 0);
 	HASSERT(hid>=0 && hid<THREADS);
 
@@ -98,7 +97,7 @@ DDF_t* __ddfHandle( int gid, int hid, size_t size) {
 
 	// initialize the local DDF_t equivalent pointer for this DDDF_t
 	DDF_t* ddf = &(myindex_dddf_array->theDDF);
-	hcpp::ddf_create_preinit(ddf);	// does not allocate but only initializes
+	hclib::ddf_init(ddf);	// does not allocate but only initializes
 	ddf->kind = (hid == MYTHREAD) ? DDF_KIND_DISTRIBUTED_OWNER : DDF_KIND_DISTRIBUTED_REMOTE;
 
 	// initialize structure variables
@@ -139,7 +138,7 @@ inline void DDF_PUT_home(int guid, int source) {
 	remote_dddf_array->put_initiator_rank = source;
 	// 4. perform a local ddf_put
 	DDF_t* ddf_remote = &remote_dddf_array->theDDF;
-	hcpp::ddf_put(ddf_remote, data_remote);
+	hclib::ddf_put(ddf_remote, data_remote);
 }
 
 /*
@@ -182,7 +181,7 @@ void DDF_PUT(DDF_t* ddf, void* data) {
 	int kind = ddf->kind;
 	// 1. do a local put in all cases
 	// incase the user breaks the single-assignment rule, an error will be thrown here
-	hcpp::ddf_put(ddf, data);
+	hclib::ddf_put(ddf, data);
 	switch (kind) {
 	case DDF_KIND_SHARED:
 		// intra-node DDF implementation --> nothing else to do
@@ -214,7 +213,7 @@ void DDF_PUT(DDF_t* ddf, void* data) {
 }
 
 void* DDF_GET(DDF_t* ddf) {
-	return hcpp::ddf_get(ddf);
+	return hclib::ddf_get(ddf);
 }
 
 /*
@@ -227,7 +226,7 @@ void DDF_FREE(DDF_t* ddf) {
 	case DDF_KIND_SHARED:
 	{
 		// intra-node DDF implementation
-		hcpp::ddf_free(ddf);
+		hclib::ddf_free(ddf);
 		break;
 	}
 	case DDF_KIND_DISTRIBUTED_OWNER:
@@ -299,7 +298,7 @@ inline void DDF_PUT_callback(int dest, int guid) {
  */
 void dddf_register_callback(DDF_t** ddf_list) {
 	int index = 0;
-	while(ddf_list[index] != NULL) {
+	while (ddf_list[index] != NULL) {
 		DDF_t* ddf = ddf_list[index++];
 		int kind = ddf->kind;
 		switch(kind) {

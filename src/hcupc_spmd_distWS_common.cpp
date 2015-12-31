@@ -293,7 +293,7 @@ void initialize_distws_setOfThieves() {
 		printf(">>> %s\n",vsdescript());
 		cout << "----------------------------------------" << endl;
 #endif
-		hcpp::display_runtime();
+		hclib::display_runtime();
 	}
 	assert(totalTasksStolenInOneShot <= 5);
 	stats_initTimelineEvents();
@@ -351,7 +351,7 @@ int total_asyncs_inFlight() {
  */
 void publish_local_load_info() {
 #ifdef DIST_WS
-	const int total_aany = hcpp::totalAsyncAnyAvailable();
+	const int total_aany = hclib::totalAsyncAnyAvailable();
 	workAvail[MYTHREAD] = (total_aany>0) ? total_aany : totalPendingLocalAsyncs();
 #else
 	workAvail[MYTHREAD] = totalPendingLocalAsyncs();
@@ -393,12 +393,12 @@ bool serve_pending_distSteal_request() {
 	while(!idle_workers && thieves_waiting) {
 		// First make sure, we still have tasks, hence try local steal first
 		int i=0;
-		hcpp::remoteAsyncAny_task tasks[5];
+		hclib::remoteAsyncAny_task tasks[5];
 
 		for( ; i<totalTasksStolenInOneShot; i++) {
 			// Steal task from computation workers
 			if(i>0 && idle_workers) break;
-			bool success = hcpp::steal_fromComputeWorkers_forDistWS(&tasks[i]);
+			bool success = hclib::steal_fromComputeWorkers_forDistWS(&tasks[i]);
 			if(!success) break;	// never return from here as it will be bug in case HCPP_STEAL_N>1
 			increment_outgoing_tasks();
 		}
@@ -447,7 +447,7 @@ bool serve_pending_distSteal_request_baseline() {
 		// this will be true only in two conditions:
 		// 1. this thread was a thief in previous iteration
 		// 2. this thread just started with work
-		const int work = hcpp::totalAsyncAnyAvailable();
+		const int work = hclib::totalAsyncAnyAvailable();
 		if(work) {
 			req_thread[MYTHREAD] = REQ_AVAILABLE;
 			workAvail[MYTHREAD] = work;
@@ -459,12 +459,12 @@ bool serve_pending_distSteal_request_baseline() {
 	int requestor = req_thread[MYTHREAD];
 	if (requestor >= 0) {
 		int i=0;
-		hcpp::remoteAsyncAny_task tasks[5];
+		hclib::remoteAsyncAny_task tasks[5];
 
 		for( ; i<totalTasksStolenInOneShot; i++) {
 			if(i>0 && idle_workers) break;
 			// Steal task from computation workers
-			bool success = hcpp::steal_fromComputeWorkers_forDistWS(&tasks[i]);
+			bool success = hclib::steal_fromComputeWorkers_forDistWS(&tasks[i]);
 			if(!success) break;	// never return from here as it will be bug in case HCPP_STEAL_N>1
 			increment_outgoing_tasks();
 		}
