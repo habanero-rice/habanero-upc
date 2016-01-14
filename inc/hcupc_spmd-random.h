@@ -34,7 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
- * This file was originally taken from the github directory https://github.com/perarnau/uts
+ * This code in this file to find victim based on Euclidian distance from the thief
+ * is taken from the github directory https://github.com/perarnau/uts
  */
 
 namespace hupcpp {
