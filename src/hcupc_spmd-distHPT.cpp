@@ -389,6 +389,7 @@ void create_proximity_array(int places, int myrank) {
 }
 
 void print_topology_information() {
+	if(!root) return;
 	cout << ">>>>>>>>>>>>>>>>>>>>>>>>>> EDISON NODE ALLOCATION DETAILS <<<<<<<<<<<<<<<<<<<<<<<<<<<" << endl;
 	print_edison_allocations();
 	cout << ">>>>>>>>>>>>>>>>>>>>>>>>>> EDISON NODE ALLOCATION DETAILS <<<<<<<<<<<<<<<<<<<<<<<<<<<" << endl;
