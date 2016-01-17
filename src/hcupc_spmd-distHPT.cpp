@@ -38,12 +38,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace hupcpp {
 
-
 typedef struct topology {
 	/*
-	 * c12-5c2s7n0 => column=12; row=5; chasis=2; blade=7; rank=0
+	 * c12-5c2s7n0 => column=12; row=5; chasis=2; blade=7; node=0
 	 */
-	int	col;
+	int col;
 	int row;
 	int chasis;
 	int blade;
@@ -55,8 +54,7 @@ typedef struct topology {
 
 typedef enum place_type {
 	ROOT_PLACE,
-	ROW_PLACE,
-	CABINET_PLACE,
+	CABINET_GROUP_PLACE,
 	CHASIS_PLACE,
 	BLADE_PLACE,
 	NODE_PLACE,
@@ -76,70 +74,19 @@ typedef struct place_t {
 	short type;
 } place_t ;
 
-typedef struct cabinetLoad {
-	place_t* cabinet;
-	int threads;
-} cabinetLoad;
-
 static place_t* root = NULL;
 static place_t* myBladePlace = NULL;
-
-static cabinetLoad* cabinetLoad_array = NULL;
-static int total_cabinets = 0;
-
 static int* proximity;
 
-void calculate_threads_distribution() {
-	int index = 0;
+/*
+ * See: https://www.nersc.gov/users/computational-systems/edison/configuration/edison-cabinets/
+ * In actual its 15 as one group  (C1R0 and C0R0) is missing.
+ */
+#define MAX_CABINET_GROUP_ON_EDISON		16
+#define MAX_CABINET_GROUP_IN_ROW_ON_EDISON	4
+#define MAX_CABINET_IN_ONE_GROUP_ON_EDISON	2
+#define MAX_CHASIS_ON_A_CABINET			3
 
-	place_t* row = root->child;
-	while(row) {
-		place_t* cabinet = row->child;
-		while(cabinet) {
-			// allocate
-			if(!cabinetLoad_array) {
-				cabinetLoad_array = (cabinetLoad*) malloc(sizeof(cabinetLoad));
-			}
-			else {
-				cabinetLoad_array = (cabinetLoad*) realloc(cabinetLoad_array, sizeof(cabinetLoad)*(index+1));
-			}
-
-			// populate cabinet
-			cabinetLoad_array[index].cabinet = cabinet;
-
-			place_t* chasis = cabinet->child;
-			int threads = 0;
-			while(chasis) {
-				place_t* blade = chasis->child;
-				while(blade) {
-					threads += blade->nworkers;
-					blade = blade->next;
-				}
-				chasis = chasis->next;
-			}
-			// populate cabinetLoad_array with threads at this cabinet
-			cabinetLoad_array[index].threads = threads;
-
-			// move ahead
-			cabinet = cabinet->next;
-			index++;
-		}
-		row = row->next;
-	}
-	total_cabinets = index;
-}
-
-void print_cabinet_load() {
-	calculate_threads_distribution();
-	printf("Total cabinets = %d\n",total_cabinets);
-	for(int i=0; i<total_cabinets; i++) {
-		cabinetLoad cabinet = cabinetLoad_array[i];
-		int rowID = cabinet.cabinet->parent->id;
-		int cabinetID = cabinet.cabinet->id;
-		int threads = cabinet.threads;
-		printf("[%d, %d] = %d\n",rowID, cabinetID, threads);
-	}
-}
 
 inline place_t* get_new_place(short type, int id) {
 	place_t* p = new place_t;
@@ -155,49 +102,29 @@ inline place_t* get_new_place(short type, int id) {
 }
 
 void print_edison_allocations() {
-	place_t* rows = root->child;
+	place_t* cabinet_groups = root->child;
 	printf("==Logical_Root==\n\n");
-	while(rows) {
-		printf("Row_%d [\n",rows->id);
-		place_t* cabinets = rows->child;
-		while(cabinets) {
-			printf("\t\tCabinet_%d [\n",cabinets->id);
-			place_t* chasises = cabinets->child;
-			while(chasises) {
-				printf("\t\t\t\tChasis_%d [ ",chasises->id);
-				place_t* blades = chasises->child;
-				while(blades) {
-					printf("Blade_%d{",blades->id);
-					for(int i=0; i<blades->nworkers; i++) {
-						int rank = blades->workers[i];
-						printf("%d",rank);
-						if(i+1 <blades->nworkers) printf(", ");
-					}
-					blades = blades->next;
-					printf("} ");	// end blade printf
+	while(cabinet_groups) {
+		printf("Cabinet_Group_%d [\n",cabinet_groups->id);
+		place_t* chasis = cabinet_groups->child;
+		while(chasis) {
+			printf("\tChasis_%d [\n",chasis->id);
+			place_t* blades = chasis->child;
+			while(blades) {
+				printf("\t\tBlade_%d{",blades->id);
+				for(int i=0; i<blades->nworkers; i++) {
+					int rank = blades->workers[i];
+					printf("%d",rank);
+					if(i+1 <blades->nworkers) printf(", ");
 				}
-				chasises = chasises->next;
-				printf("]\n");	// end chasis printf
+				blades = blades->next;
+				printf("}\n ");	// end blade printf
 			}
-			cabinets = cabinets->next;
-			printf("\t\t]\n");	// end cabinet printf
+			chasis = chasis->next;
+			printf("\t]\n");	// end chasis printf
 		}
-		rows = rows->next;
+		cabinet_groups = cabinet_groups->next;
 		printf("]\n");	// end row printf
-	}
-}
-
-void print_my_place(int myrank) {
-	printf("MyPosition(%d): Row=%d, Cabinet=%d, Chasis=%d, Blade=%d\n",myrank, myBladePlace->parent->parent->parent->id, myBladePlace->parent->parent->id, myBladePlace->parent->id, myBladePlace->id);
-}
-
-void print_topology_information() {
-	if(root && proximity) {
-		cout << ">>>>>>>>>>>>>>>>>>>>>>>>>> EDISON NODE ALLOCATION DETAILS <<<<<<<<<<<<<<<<<<<<<<<<<<<" << endl;
-		print_edison_allocations();
-		print_my_place(MYTHREAD);
-		print_cabinet_load();
-		cout << ">>>>>>>>>>>>>>>>>>>>>>>>>> EDISON NODE ALLOCATION DETAILS <<<<<<<<<<<<<<<<<<<<<<<<<<<" << endl;
 	}
 }
 
@@ -265,7 +192,7 @@ inline place_t* add_place(place_t** head, short type, int id) {
 	}
 	else {
 		/*
-		 * Try finding existing entry for this cabinet,
+		 * Try finding existing entry for this place,
 		 * if no entry found, add an entry and return
 		 * the left most place at this level
 		 */
@@ -278,10 +205,45 @@ inline place_t* add_place(place_t** head, short type, int id) {
 	return node;
 }
 
+inline int edison_cabinet_group_id(int col, int row) {
+	/*
+	 * See: https://www.nersc.gov/users/computational-systems/edison/configuration/edison-cabinets/
+	 *
+	 * a) There are total 15 group of cabinets. Each group contains two cabinets
+	 *    which are at same hierarchy (e.g., C1R0 and C0R0)
+	 * b) These 15 groups are arranged into total 4 rows (rows=0-3).
+	 * c) But we consider a total of 16 cabinet groups to cover for the missing group id 12.
+	 * d) The range of group id = 0 to 15, where group id 12 is missing.
+	 */
+
+	/*
+	 * The groups can be assumed to be occupying a slot in 4x4 matrix,
+	 * where the group id 12 is missing.
+	 * Hence, no such cabinet exists: C0R3 and C1R3.
+	 */
+	if(row == 3) assert(col!=0 && col!=1);
+	return ((MAX_CABINET_GROUP_IN_ROW_ON_EDISON * row) + ((int)(col/MAX_CABINET_IN_ONE_GROUP_ON_EDISON)));
+}
+
+inline int edison_chasis_index_in_cabinet_group(int col, int chasis) {
+	/*
+	 * a) Chasis are numbered as [0,2] in each cabinet.
+	 * b) Each cabinet group in a row contains two cabinets, in which there are altogether 6 chasis.
+	 * c) Each of these 6 chasises are at same hierarchy in tree.
+	 * d) To allocate a chasis at cabinet group level, we consider the value of column
+	 * e) There will be an odd and an even column id in each cabinet group.
+	 * f) Chasis id on an odd column cabinet remains unchanged.
+	 * g) Chasis id on an even column is added with MAX_CHASIS_ON_A_CABINET (=3)
+	 */
+	int chasis_new_id = (col%2==0) ? (chasis + MAX_CHASIS_ON_A_CABINET) : chasis;
+	assert(chasis_new_id < (2*MAX_CHASIS_ON_A_CABINET));
+	return chasis_new_id;
+}
+
 inline void add_rank_in_blade(place_t* blade, int rank, int myrank) {
 	if((blade->nworkers+1) > EDISON_NODES_PER_BLADE) {
 		printf("ERROR: Cabinet_%d, Chasis_%d, Blade_%d -- Extra node allocation for rank %d\n",blade->parent->parent->id, blade->parent->id, blade->id, rank);
-		print_edison_allocations();
+		//print_edison_allocations();
 		assert("More than 4 nodes in blades" && 0);
 	}
 	if(blade->nworkers == 0) {
@@ -306,13 +268,13 @@ void create_edison_topology(topology* place_coords, int places, int myrank) {
 		topology place_i = place_coords[i];
 		int col_i = place_i.col;
 		int row_i = place_i.row;
-		int chasis_i = place_i.chasis;
+		int chasis_i = edison_chasis_index_in_cabinet_group(col_i, place_i.chasis);
 		int blade_i = place_i.blade;
 		int rank_i = place_i.rank;
 
-		place_t* row_place_i = add_place(&root, ROW_PLACE, row_i);
-		place_t* cabinet_place_i = add_place(&row_place_i, CABINET_PLACE, col_i);
-		place_t* chasis_place_i = add_place(&cabinet_place_i, CHASIS_PLACE, chasis_i);
+		int cabinet_gid = edison_cabinet_group_id(col_i, row_i);
+		place_t* cabinet_group_place_i = add_place(&root, CABINET_GROUP_PLACE, cabinet_gid);
+		place_t* chasis_place_i = add_place(&cabinet_group_place_i, CHASIS_PLACE, chasis_i);
 		place_t* blade_place_i = add_place(&chasis_place_i, BLADE_PLACE, blade_i);
 		add_rank_in_blade(blade_place_i, rank_i, myrank);
 	}
@@ -344,38 +306,6 @@ inline void add_chasis_inCabinets_toProximityArray(place_t* cabinet, int* curr_i
 	}
 }
 
-inline void add_cabinets_inRows_toProximityArray(place_t* row, int* curr_index) {
-	place_t* cabinet = row->child;
-	while(cabinet) {
-		// go one level down and iterate over all the blades in this chasis
-		add_chasis_inCabinets_toProximityArray(cabinet, curr_index);
-		cabinet = cabinet->next;
-	}
-}
-
-place_t* get_place_of_rank(int rank) {
-	place_t* row = root->child;
-	while(row) {
-		place_t* cabinet = row->child;
-		while(cabinet) {
-			place_t* chasis = cabinet->child;
-			while(chasis) {
-				place_t* blade = chasis->child;
-				while(blade) {
-					for(int i=0; i<blade->nworkers; i++) {
-						if(blade->workers[i] == rank) return blade;
-					}
-					blade = blade->next;
-				}
-				chasis = chasis->next;
-			}
-			cabinet = cabinet->next;
-		}
-		row = row->next;
-	}
-	return NULL;
-}
-
 /*
  * ====Tree traversal to find victim====
  */
@@ -389,9 +319,12 @@ void create_proximity_array(int places, int myrank) {
 	place_t* blade = myBladePlace;
 
 	// 1. Nodes on my blade are the first choice (PCIe-3 connection 16 bits at 8.0 GT/s)
+	// 	This is the closest/fastest connection between nodes.
 	add_ranks_inBlade_toProximityArray(blade, &index, myrank);
 
 	// 2. Add nodes from blade on my left and then from blade on my right -> repeat this step until done
+	// All of these nodes talk to an aries chip, through a backplane, to
+	// a second aries chip and to the node. This is an all-to-all network.
 	place_t* blade_left = myBladePlace->prev;
 	place_t* blade_right = myBladePlace->next;
 
@@ -411,6 +344,8 @@ void create_proximity_array(int places, int myrank) {
 
 	// 3. Go one level up in tree
 	// 3a. add chasis on my left and then the chasis on my right
+	// There are 6 chasis in a cabinet group, each at same hierarchy
+	// and this is also an all-to-all connection connecting aries in groups of 6.
 	place_t* chasis_left = myBladePlace->parent->prev;
 	place_t* chasis_right = myBladePlace->parent->next;
 
@@ -430,7 +365,8 @@ void create_proximity_array(int places, int myrank) {
 		}
 	}
 
-	// 4. Go one level up in tree (cabinet)
+	// 4. Go one level up in tree (cabinet). We consider all cabinet groups
+	//    at same hierarchy.
 	// 4a. add cabinet on my left and then the cabinet on my right
 	place_t* cabinet_left = myBladePlace->parent->parent->prev;
 	place_t* cabinet_right = myBladePlace->parent->parent->next;
@@ -450,34 +386,19 @@ void create_proximity_array(int places, int myrank) {
 			cabinet_right = cabinet_right->next;
 		}
 	}
+}
 
-	// 5. Go one level up in the tree (rows)
-	// 5a. add rows on my left and then the rows on my right
-	place_t* row_left = myBladePlace->parent->parent->parent->prev;
-	place_t* row_right = myBladePlace->parent->parent->parent->next;
-
-	while(row_left || row_right) {
-		// 5b. first add the one on my left
-		if(row_left) {
-			// iterate all the chasis in this cabinet
-			add_cabinets_inRows_toProximityArray(row_left, &index);
-			row_left = row_left->prev;
-		}
-
-		// 5c. now add the one on my right
-		if(row_right) {
-			// iterate all the chasis in this cabinet
-			add_cabinets_inRows_toProximityArray(row_right, &index);
-			row_right = row_right->next;
-		}
-	}
+void print_topology_information() {
+	if(!root) return;
+	cout << ">>>>>>>>>>>>>>>>>>>>>>>>>> EDISON NODE ALLOCATION DETAILS <<<<<<<<<<<<<<<<<<<<<<<<<<<" << endl;
+	print_edison_allocations();
+	cout << ">>>>>>>>>>>>>>>>>>>>>>>>>> EDISON NODE ALLOCATION DETAILS <<<<<<<<<<<<<<<<<<<<<<<<<<<" << endl;
 }
 
 void create_distributed_hpt(int row, int column, int chasis, int blade, int rank) {
 	topology my_topology = {column, row, chasis, blade, rank};
-	topology* global_topology = new topology[THREADS - 1];
+	topology* global_topology = new topology[THREADS];
 	upcxx_allgather(&my_topology, global_topology, sizeof(topology));
-
 	create_edison_topology(global_topology, THREADS, rank);
 }
 

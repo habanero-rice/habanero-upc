@@ -65,7 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 	 	__VS_DIST_HPT__ :	HabaneroUPC++ Distributed Workstealing (Distributed HPT)
  *
  */
-#define __VS_RR__
+#define __VS_RAND__
 
 /*
  * ------- Runtime control flags -------- End
