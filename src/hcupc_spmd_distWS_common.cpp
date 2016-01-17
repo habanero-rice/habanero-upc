@@ -186,7 +186,11 @@ inline int size_thief_queue() {
 }
 
 inline bool empty_thief_queue() {
-	return head==tail;
+	if(head==tail) {
+		head = tail = -1;
+		return true;
+	}
+	else return false;
 }
 
 /*
