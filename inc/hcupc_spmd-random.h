@@ -34,7 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
- * This file was originally taken from the github directory https://github.com/perarnau/uts
+ * This code in this file to find victim based on Euclidian distance from the thief
+ * is taken from the github directory https://github.com/perarnau/uts
  */
 
 namespace hupcpp {
@@ -67,10 +68,20 @@ inline void resetVictimArray() {
 }
 
 #elif defined(__VS_RAND__)
+int* victims;
+int* victims_bk;
+static int attempts = 1;
+#define NOT_CONTACTED   -1
+#define CONTACTED       -2
 inline void vsinit()
 {
-	if(MYTHREAD==0) std::cout<<"WARNING: __VS_RAND__ may not work as expected with current design" << std::endl;
 	srand(MYTHREAD);
+	victims = (int*) malloc(sizeof(int) * (THREADS));
+	victims_bk = (int*) malloc(sizeof(int) * (THREADS));
+	for(int i=0; i<THREADS; i++) {
+		victims[i] = NOT_CONTACTED;
+		victims_bk[i] = NOT_CONTACTED;
+	}
 }
 
 inline char * vsdescript(void)
@@ -78,22 +89,43 @@ inline char * vsdescript(void)
 	return "HabaneroUPC++ Distributed Workstealing (Rand)";
 }
 
-inline int selectvictim()
+inline int select_randVictim()
 {
-	int last = last_steal;
-	int rank = MYTHREAD;
+	int vic;
 	do {
-		last = rand()%THREADS;
-	} while(last == rank);
-	last_steal = last;
-	return last;
+		vic = rand()%THREADS;
+	} while(vic == MYTHREAD);
+	return vic;
+}
+
+/*
+ * This function when called inside a victim search loop for i=[1,THREADS-1] number of times,
+ * each time it will return a "UNIQUE & RANDOM" victim id. I.e., in each search cycle,
+ * a victim already attempted will not be re-attempted. This is to avoid multiple attempts
+ * at same victim.
+ */
+inline int selectvictim() {
+	while(attempts < THREADS) {
+		int v = select_randVictim();
+		if(victims[v] == NOT_CONTACTED) {
+			attempts++;
+			victims[v] = CONTACTED;
+			return v;
+		}
+		else {
+			continue;
+		}
+	}
+	assert("VS_RAND: Failed to find victim" && 0);
+	return -1;
 }
 
 inline void initialize_last_stolen() {
-	last_steal = MYTHREAD;
 }
 
 inline void resetVictimArray() {
+	memcpy(victims, victims_bk, THREADS*sizeof(int));
+	attempts=1;
 }
 
 #elif defined(__VS_DISTANCE__)
