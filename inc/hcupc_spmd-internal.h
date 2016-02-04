@@ -77,7 +77,7 @@ void get_totalAsyncAny_stats(counter_t *tasksStolen, counter_t* successSteals, c
 void get_steal_stats(int* s1, int* s2, int* s3, int* s4, int* s4P);
 void record_failedSteal_timeline();
 void contacted_victims_statistics(int victims_contacted);
-void check_cyclicSteals(int v, int head, int tail, int* queued_thieves);
+bool check_cyclicSteals(int v, int head, int tail, int* queued_thieves);
 void check_if_out_of_work_stats(bool out_of_work);
 void stats_initTimelineEvents();
 void success_steals_stats();

@@ -95,13 +95,14 @@ int		total_steal_4Plus = 0;
 /*
  * only for statistics
  */
-void check_cyclicSteals(int v, int head, int tail, int* queued_thieves) {
+bool check_cyclicSteals(int v, int head, int tail, int* queued_thieves) {
 	while(head!=tail) {
 		if(v==queued_thieves[++head % THREADS]) {
 			total_cyclic_steals++;
-			return;
+			return true; 
 		}
 	}
+	return false;
 }
 
 void check_if_out_of_work_stats(bool out_of_work) {

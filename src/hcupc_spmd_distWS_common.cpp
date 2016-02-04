@@ -85,6 +85,7 @@ static int last_steal;	// place id of last victim
 
 namespace hupcpp {
 
+const static char* cyclic_steals_not_allowed = getenv("HCPP_CANCEL_CYCLIC_STEALS");
 extern volatile int idle_workers;	// counts computation workers only
 
 double totalTasksStolenInOneShot = -1; // may be fraction as well (getenv)
@@ -160,7 +161,28 @@ inline void decrement_task_in_flight(int place, int tasks) {
 inline void mark_victimContacted(int v) {
 	HASSERT(contacted_victims[v] == POPPED_ENTRY);
 	contacted_victims[v] = QUEUED_ENTRY;
-	check_cyclicSteals(v, head, tail, queued_thieves);
+	bool ret = check_cyclicSteals(v, head, tail, queued_thieves);
+	if (cyclic_steals_not_allowed && ret) {
+		// This victim is already queued as Thief with me.
+		// Remove this victim from queued_thief list
+		int queued_thieves_tmp[THREADS];
+		int index=-1;
+		while(head!=tail) {
+			int t = queued_thieves[++head % THREADS];
+           		if(v!=t) {
+                        	queued_thieves_tmp[++index] = t;
+            		}
+        	}
+		head=-1;
+		tail=index;
+#ifdef HCPP_DEBUG
+			cout <<MYTHREAD << ": Cyclic steals, queued_thieves -->" << v << " new head= "<< head << " tail = " << tail << endl;
+#endif
+		if(tail != -1) {
+			memcpy(queued_thieves, queued_thieves_tmp, sizeof(int)*THREADS);
+		}
+		else thieves_waiting = false;
+	}
 }
 
 inline void unmark_victimContacted(int v) {
@@ -186,7 +208,11 @@ inline int size_thief_queue() {
 }
 
 inline bool empty_thief_queue() {
-	return head==tail;
+	if(head==tail) {
+                head = tail = -1;
+                return true;
+        }
+        else return false;
 }
 
 /*
@@ -197,6 +223,14 @@ inline void queue_thief(int i) {
 	thieves_waiting = true;
 	check_if_out_of_work_stats(out_of_work);
 	queued_thieves[++tail % THREADS] = i;
+	// Check if I owe task from this thief, i.e., if this
+	// thief is queued as one my victims
+	if(cyclic_steals_not_allowed && victim_already_contacted(i)) {
+#ifdef HCPP_DEBUG
+			cout <<MYTHREAD << ": Cyclic steals, unmark_victimContacted -->" << i << endl;
+#endif
+		unmark_victimContacted(i);
+	}
 }
 
 inline int pop_thief() {
@@ -285,6 +319,9 @@ void initialize_distws_setOfThieves() {
 		else {
 			printf(">>> HCPP_DIST_WS_BASELINE\t\t= false\n");
 		}
+		if(getenv("HCPP_CANCEL_CYCLIC_STEALS")) {
+			printf(">>> HCPP_CANCEL_CYCLIC_STEALS\t\t= true\n");
+		}
 		if(totalTasksStolenInOneShot < 1) {
 			printf("WARNING (HCPP_STEAL_N): N should always be positive integer, setting it as 1\n");
 			totalTasksStolenInOneShot = 1;
@@ -358,6 +395,7 @@ void publish_local_load_info() {
 #endif
 }
 
+#ifdef DIST_WS
 /*
  * Runs at thief when victim sends asyncAny task to thief
  */
@@ -539,7 +577,7 @@ void receipt_of_stealRequest() {
  *
  * This is an improvement over:
  * Saraswat, V.A., Kambadur, P., Kodali, S., Grove, D., Krishnamoorthy,
- * S.: Lifeline-based global load balancing. In: PPoPP. pp. 201Ð212 (2011)
+ * S.: Lifeline-based global load balancing. In: PPoPP. pp. 201-212 (2011)
  */
 bool search_tasks_globally() {
 	// show this thread as not working
@@ -675,5 +713,6 @@ bool search_tasks_globally_baseline() {
 
 	return success;
 }
+#endif
 
 }
