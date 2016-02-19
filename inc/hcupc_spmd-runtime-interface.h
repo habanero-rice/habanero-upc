@@ -38,7 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace hupcpp {
 
 typedef	hclib::promise_t  promise_t;
-typedef	hclib::ddt_t  DDT_t;
+typedef hclib::future_t future_t;
+typedef	hclib::triggered_task_t  triggered_task_t;
 
 inline promise_t* promise_create() {
     return new promise_t();
@@ -52,8 +53,8 @@ inline void promise_free(promise_t * promise) {
     delete promise;
 }
 
-inline void * promise_get(promise_t * promise) {
-    return promise->get();
+inline void * future_get(future_t *future) {
+    return future->get();
 }
 
 #include "hcupc_spmd-asyncAwait.h"
@@ -84,8 +85,8 @@ inline void finish(std::function<void()> lambda) {
 }
 
 template <typename T>
-inline void asyncComm(T lambda) {
-	hclib::asyncComm<T>(lambda);
+inline void async_comm(T lambda) {
+	hclib::async_comm<T>(lambda);
 }
 
 template <typename T>

@@ -212,8 +212,8 @@ void PROMISE_PUT(promise_t* promise, void* data) {
 	}
 }
 
-void* PROMISE_GET(promise_t* promise) {
-    return promise->get();
+void *FUTURE_GET(future_t *future) {
+    return future->get();
 }
 
 /*
@@ -282,16 +282,16 @@ inline void PROMISE_PUT_callback(int dest, int guid) {
 	HASSERT(gotit != distributed_promise_guid_map.end());
 	dpromise_t* myindex_dpromise_array = gotit->second;
 	promise_t* the_promise = &(myindex_dpromise_array->the_promise);
-	hupcpp::asyncAwait([=]() {
+	hupcpp::async_await([=]() {
 		// 2. When control is here, it means the promise is ready with the put data
 		if(myindex_dpromise_array->put_initiator_rank != dest) { // Don't have the do a put_back if the requestor node is the source of the actual put
 			PROMISE_PUT_remote(myindex_dpromise_array, dest);
 		}
-	}, the_promise);
+	}, the_promise->get_future());
 }
 
 /*
- * This function is called from hupcpp::asyncAwait function.
+ * This function is called from hupcpp::async_await function.
  * This is called from inside the hclib runtime and the list of
  * promise is passed to check if any of the promise in the list is "distributed promise" rather than a "promise".
  * In case of distributed promise, special treatment is ensured here in this function
@@ -319,11 +319,11 @@ void dpromise_register_callback(promise_t** promise_list) {
 			 *
 			 * As home node is someone else, this place should inform the home node that its waiting on the
 			 * distributed promise value. When the home node receives the promise_put, it will then send the data back to this
-			 * place such that this asyncAwait gets scheduled.
+			 * place such that this async_await gets scheduled.
 			 */
 
 			// 1. Check if the put data is already available
-			if(PROMISE_GET(promise) != NULL) continue;
+			if(FUTURE_GET(promise->get_future()) != NULL) continue;
 
 			dpromise_t *myindex_dpromise_array = (dpromise_t *) promise;
 			// 2. If the put is already requested from home node, do not register any new callback

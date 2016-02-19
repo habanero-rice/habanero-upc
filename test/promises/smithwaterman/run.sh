@@ -1,15 +1,14 @@
 HCMPI_SRC_NAME=smith-waterman-mpi-v7
 HCMPI_EXEC_NAME=$HCMPI_SRC_NAME
 
-if [ $# -ne 3 ]; then
-	echo "USAGE: ./run.sh <NUM_PLACES> <NUM_WORKERS> <WORKLOAD>"
+if [ $# -ne 2 ]; then
+	echo "USAGE: ./run.sh <NUM_NODES> <WORKLOAD>"
 	echo "WORKLOAD=tiny, medium, large, huge"
 	exit
 fi
 
 NODES=$1
-export HCLIB_WORKERS=$2
-SIZE=$3
+SIZE=$2
 
 #SIZE=tiny
 #SIZE=medium
@@ -50,5 +49,8 @@ fi
 fi
 fi
 
+export HCLIB_WORKERS=6
 echo "mpirun -np ${NODES} ./smith-waterman ${INPUT_FILE_1} ${INPUT_FILE_2} ${TILE_WIDTH} ${TILE_HEIGHT} ${INNER_TILE_WIDTH} ${INNER_TILE_HEIGHT}"
-mpirun -np ${NODES} ./smith-waterman ${INPUT_FILE_1} ${INPUT_FILE_2} ${TILE_WIDTH} ${TILE_HEIGHT} ${INNER_TILE_WIDTH} ${INNER_TILE_HEIGHT}
+# mpirun -np ${NODES} ./smith-waterman ${INPUT_FILE_1} ${INPUT_FILE_2} ${TILE_WIDTH} ${TILE_HEIGHT} ${INNER_TILE_WIDTH} ${INNER_TILE_HEIGHT}
+srun --partition=interactive --exclusive --time=5 --nodes=${NODES} --ntasks-per-node=2 --cpus-per-task=6 ./smith-waterman ${INPUT_FILE_1} ${INPUT_FILE_2} ${TILE_WIDTH} ${TILE_HEIGHT} ${INNER_TILE_WIDTH} ${INNER_TILE_HEIGHT}
+

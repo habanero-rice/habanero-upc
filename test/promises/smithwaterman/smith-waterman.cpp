@@ -421,7 +421,7 @@ int main ( int argc, char* argv[] ) {
 	    			if ( rank == PROMISE_HOME(i*j_domain+j) ) {
 	    				if (debug) fprintf(stderr, "before rank:%d entered [%d][%d]\n", rank ,i,j);
 	    				if (debug) fprintf(stderr, "[%p][%p][%p]\n", tile_matrix[i][j-1].right_column,tile_matrix[i-1][j].bottom_row,tile_matrix[i-1][j-1].bottom_right );
-	    				hupcpp::asyncAwait([=]() {
+	    				hupcpp::async_await([=]() {
 	    					if(TRACE) fprintf(stderr, "Start step (Compute: (%d,%d))\n",i,j);
 	    					if (debug) fprintf(stderr, "rank:%d entered [%d][%d]\n", rank,i,j);
 	    					if (debug) fprintf(stderr, "in async [%p][%p][%p]\n", tile_matrix[i][j-1].right_column,tile_matrix[i-1][j].bottom_row,tile_matrix[i-1][j-1].bottom_right );
@@ -431,9 +431,9 @@ int main ( int argc, char* argv[] ) {
 	    					if(TRACE) fprintf(stderr, "Get item [tile_matrix: [%d, %d, %d]]\n",BOTTOM,i-1,j);
 	    					if(TRACE) fprintf(stderr, "Get item [tile_matrix: [%d, %d, %d]]\n",RIGHT,i,j-1);
 	    					if(TRACE) fprintf(stderr, "Get item [tile_matrix: [%d, %d, %d]]\n",DIAG,i-1,j-1);
-	    					int* above_tile_bottom_row = (int*)hupcpp::PROMISE_GET(tile_matrix[i-1][j].bottom_row);
-	    					int* left_tile_right_column = (int*)hupcpp::PROMISE_GET(tile_matrix[i][j-1].right_column);
-	    					int* diagonal_tile_bottom_right = (int*)hupcpp::PROMISE_GET(tile_matrix[i-1][j-1].bottom_right);
+	    					int* above_tile_bottom_row = (int*)hupcpp::FUTURE_GET(tile_matrix[i-1][j].bottom_row->get_future());
+	    					int* left_tile_right_column = (int*)hupcpp::FUTURE_GET(tile_matrix[i][j-1].right_column->get_future());
+	    					int* diagonal_tile_bottom_right = (int*)hupcpp::FUTURE_GET(tile_matrix[i-1][j-1].bottom_right->get_future());
 
 	    					if (debug) fprintf(stderr,  "rank:%d, milestone 2\n",rank);
 	    					int  * curr_tile_tmp = (int*) malloc(sizeof(int)*(1+inner_tile_width)*(1+inner_tile_height));
@@ -497,7 +497,9 @@ int main ( int argc, char* argv[] ) {
 	    					free(curr_tile_tmp);
 	    					if (debug) fprintf(stderr, "rank:%d exited [%d][%d]\n",rank,i,j);
 	    					if(TRACE) fprintf(stderr, "End step (Compute: (%d,%d))\n",i,j);
-	    				}, tile_matrix[i][j-1].right_column, tile_matrix[i-1][j].bottom_row, tile_matrix[i-1][j-1].bottom_right);
+	    				}, tile_matrix[i][j-1].right_column->get_future(),
+                            tile_matrix[i-1][j].bottom_row->get_future(),
+                            tile_matrix[i-1][j-1].bottom_right->get_future());
 	    			};
 	    		}
 	    	}
@@ -510,7 +512,7 @@ int main ( int argc, char* argv[] ) {
 	    }
 
 	    if ( rank == PROMISE_HOME(j_domain-1+j_domain*(i_domain-1)) ) {
-	    	int score = ((int *)hupcpp::PROMISE_GET(tile_matrix[i_domain-1][j_domain-1].bottom_row))[inner_tile_width-1];
+	    	int score = ((int *)hupcpp::FUTURE_GET(tile_matrix[i_domain-1][j_domain-1].bottom_row->get_future()))[inner_tile_width-1];
 	    	printf( "score: %d\n", score);
 	    }
     });

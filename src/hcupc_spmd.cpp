@@ -46,12 +46,12 @@ static bool hc_workers_initialized = false;
 volatile int* current_finish_counter = NULL;
 
 extern "C" {
-extern void (*hclib_distributed_promise_register_callback)(
+extern void (*hclib_distributed_future_register_callback)(
         hclib::promise_t** promise_list);
 }
 
 void launch(int *argc, char ***argv, std::function<void()> lambda) {
-    hclib_distributed_promise_register_callback = dpromise_register_callback;
+    hclib_distributed_future_register_callback = dpromise_register_callback;
 
     hclib::launch(argc, *argv, [=]() {
             upcxx::init(argc, argv);
@@ -433,7 +433,7 @@ void finish_spmd(std::function<void()> lambda) {
 		auto comm_lambda_finish = [=] () {
 			hclib_finish_barrier();
 		};
-		asyncComm(comm_lambda_finish);
+		async_comm(comm_lambda_finish);
 	}
 
 	/*

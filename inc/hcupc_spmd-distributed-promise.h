@@ -26,7 +26,7 @@ typedef struct _dpromise_t {
 promise_t* __promiseHandle(int gid, int hid, size_t count);
 int __promiseGetHome(promise_t* promise);
 void PROMISE_PUT(promise_t* promise, void* data);
-void* PROMISE_GET(promise_t* promise);
+void* FUTURE_GET(future_t* promise);
 void PROMISE_FREE(promise_t* promise);
 
 }

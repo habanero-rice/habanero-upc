@@ -33,7 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *      Author: Vivek Kumar (vivekk@rice.edu)
  */
 
-template <typename T, typename... promise_list_t>
-void asyncAwait(T lambda, promise_list_t... promises) {
-	hclib::asyncAwait(lambda, promises...);
+template <typename T, typename... future_list_t>
+void async_await(T lambda, future_list_t... futures) {
+	hclib::async_await(lambda, futures...);
 }
