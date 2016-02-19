@@ -213,7 +213,7 @@ static int diagonal_block_cyclic_distribution_function ( int guid, int tag_offse
 
 int main ( int argc, char* argv[] ) {
     hupcpp::launch(&argc, &argv, [=]() {
-	    int rank=MYTHREAD, nproc=THREADS;
+	    int rank=upcxx::global_myrank(), nproc=upcxx::global_ranks();
 
 	    if (rank == 0) {
 	    	if ( argc < 7 ) {
