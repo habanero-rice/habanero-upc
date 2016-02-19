@@ -397,16 +397,16 @@ void print_topology_information() {
 
 void create_distributed_hpt(int row, int column, int chasis, int blade, int rank) {
 	topology my_topology = {column, row, chasis, blade, rank};
-	topology* global_topology = new topology[THREADS];
+	topology* global_topology = new topology[upcxx::global_ranks()];
 	upcxx_allgather(&my_topology, global_topology, sizeof(topology));
-	create_edison_topology(global_topology, THREADS, rank);
+	create_edison_topology(global_topology, upcxx::global_ranks(), rank);
 }
 
 int* create_arrray_of_nearestVictim() {
 	assert(root);
-	create_proximity_array(THREADS, MYTHREAD);
+	create_proximity_array(upcxx::global_ranks(), upcxx::global_myrank());
 	assert(proximity);
-	for(int i=0; i<THREADS-1; i++) assert(proximity[i] != -1);
+	for(int i=0; i<upcxx::global_ranks()-1; i++) assert(proximity[i] != -1);
 	return proximity;
 }
 

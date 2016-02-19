@@ -176,7 +176,7 @@ inline int cbarrier_inc() {
 	CB_LOCK;
 	cb_count = cb_count + 1;
 	CB_UNLOCK;
-	if (cb_count == THREADS) {
+	if (cb_count == upcxx::global_ranks()) {
 		return TERM;
 	}
 	else {
@@ -190,7 +190,7 @@ inline int cbarrier_inc() {
 inline int cbarrier_dec() {
 	int status = TERM;
 	CB_LOCK;
-	if (cb_count < THREADS) {
+	if (cb_count < upcxx::global_ranks()) {
 		status = NO_TERM;
 		cb_count = cb_count - 1;
 	}
@@ -199,7 +199,7 @@ inline int cbarrier_dec() {
 }
 
 inline int cbarrier_test() {
-	return  (cb_count == THREADS)? TERM : NO_TERM;
+	return  (cb_count == upcxx::global_ranks())? TERM : NO_TERM;
 }
 
 /*
@@ -254,7 +254,7 @@ void hclib_finish_barrier_distWS() {
 	int status = NO_TERM;
 
 	hupcpp::barrier();
-	const bool singlePlace = THREADS == 1;
+	const bool singlePlace = upcxx::global_ranks() == 1;
 
 	while (status != TERM) {
 		pop_execute_comm_task();
@@ -304,7 +304,7 @@ void hclib_finish_barrier_baseline_distWS() {
 	int status = NO_TERM;
 
 	hupcpp::barrier();
-	const bool singlePlace = THREADS == 1;
+	const bool singlePlace = upcxx::global_ranks() == 1;
 
 	while (status != TERM) {
 		pop_execute_comm_task();
@@ -361,7 +361,7 @@ void hclib_finish_barrier() {
 	int status = NO_TERM;
 
 	hupcpp::barrier();
-	const bool singlePlace = THREADS == 1;
+	const bool singlePlace = upcxx::global_ranks() == 1;
 
 	while (status != TERM) {
 		pop_execute_comm_task();
@@ -408,7 +408,7 @@ void finish_spmd(std::function<void()> lambda) {
 	 * place has a communication worker, i.e. hc_workers > 1
 	 */
 	hupcpp::barrier();
-	const bool comm_worker = true;//hc_workers > 1 && THREADS > 1;
+	const bool comm_worker = true;//hc_workers > 1 && upcxx::global_ranks() > 1;
 
 	current_finish_counter = hclib::start_finish_special();
 

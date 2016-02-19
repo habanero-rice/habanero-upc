@@ -48,14 +48,14 @@ std::unordered_map<int, dpromise_t*> distributed_promise_guid_map;
 // used only for distributed promise related operations and hence not available to users
 template <typename T>
 inline void _asyncAfter(int p, upcxx::event *e, T lambda) {
-	assert(p != MYTHREAD);
+	assert(p != upcxx::global_myrank());
 	auto lambda2 = [=]() {
 		auto lambda_dest = [lambda]() {
 			hupcpp::async([lambda]() {
 				lambda();
 			});
 		};
-		upcxx::global_ptr<decltype(lambda_dest)> remote_lambda = upcxx::allocate<decltype(lambda_dest)>(MYTHREAD, 1);
+		upcxx::global_ptr<decltype(lambda_dest)> remote_lambda = upcxx::allocate<decltype(lambda_dest)>(upcxx::global_myrank(), 1);
 		memcpy(remote_lambda.raw_ptr(), &lambda_dest, sizeof(decltype(lambda_dest)));
 		upcxx::async_after(p, e, NULL)(async_at_received<decltype(lambda_dest)>, remote_lambda);
 	};
@@ -71,7 +71,7 @@ inline upcxx::event* _asyncCopy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> d
 	HASSERT(e != NULL);
 	auto lambda = [=]() {
 		upcxx::async_copy(src, dst, count, e);
-		upcxx::async_after(MYTHREAD, e, NULL)(async_after_asyncCopy, (void*)NULL);
+		upcxx::async_after(upcxx::global_myrank(), e, NULL)(async_after_asyncCopy, (void*)NULL);
 	};
 	allocate_comm_task<decltype(lambda)>(lambda);
 	return e;
@@ -87,11 +87,11 @@ promise_t* __promiseHandle( int gid, int hid, size_t size) {
 	 * on the comm_worker
 	 */
 	HASSERT(size > 0);
-	HASSERT(hid>=0 && hid<THREADS);
+	HASSERT(hid>=0 && hid<upcxx::global_ranks());
 
 	upcxx::shared_array<dpromise_t> *promise_array = new upcxx::shared_array<dpromise_t>();
-	(*promise_array).init(THREADS, 1);
-	dpromise_t *myindex_promise_array = (dpromise_t *) &((*promise_array)[MYTHREAD]);
+	(*promise_array).init(upcxx::global_ranks(), 1);
+	dpromise_t *myindex_promise_array = (dpromise_t *) &((*promise_array)[upcxx::global_myrank()]);
 
 	// store the dpromise_t in hash-table with guid as hash-key
 	distributed_promise_guid_map.insert({gid, myindex_promise_array});
@@ -99,7 +99,7 @@ promise_t* __promiseHandle( int gid, int hid, size_t size) {
 	// initialize the local promise_t equivalent pointer for this dpromise_t
 	promise_t* promise = &(myindex_promise_array->the_promise);
     new (promise) promise_t();
-	promise->internal.kind = (hid == MYTHREAD) ? PROMISE_KIND_DISTRIBUTED_OWNER : PROMISE_KIND_DISTRIBUTED_REMOTE;
+	promise->internal.kind = (hid == upcxx::global_myrank()) ? PROMISE_KIND_DISTRIBUTED_OWNER : PROMISE_KIND_DISTRIBUTED_REMOTE;
 
 	// initialize structure variables
 	myindex_promise_array->global_id = gid;
@@ -110,7 +110,7 @@ promise_t* __promiseHandle( int gid, int hid, size_t size) {
 
 	// allocate the datum in global address space
 	myindex_promise_array->datum = new upcxx::shared_array<char>();
-	(*myindex_promise_array->datum).init(THREADS*(myindex_promise_array->count), myindex_promise_array->count);	// block cyclic allocation of array
+	(*myindex_promise_array->datum).init(upcxx::global_ranks()*(myindex_promise_array->count), myindex_promise_array->count);	// block cyclic allocation of array
 	const int kind = promise->internal.kind;
 	HASSERT(kind == PROMISE_KIND_DISTRIBUTED_OWNER || kind == PROMISE_KIND_DISTRIBUTED_REMOTE);
 	hupcpp::barrier();
@@ -131,7 +131,7 @@ inline void PROMISE_PUT_home(int guid, int source) {
 	// 2. copy the content from global address space to private memory
 	const int count_remote = remote_dpromise_array->count;
 	char* data_remote = new char[count_remote];
-	const int remote_startIndex = MYTHREAD * count_remote;
+	const int remote_startIndex = upcxx::global_myrank() * count_remote;
 	std::memcpy(data_remote, (char*)(&((*remote_dpromise_array->datum)[remote_startIndex])), sizeof(char)*count_remote);
 	// 3. Store which remote node gave me the put data. This is to ensure
 	// that I should cancel out all put_back on this same distributed promise from the source node
@@ -149,14 +149,14 @@ inline void PROMISE_PUT_home(int guid, int source) {
  */
 inline void PROMISE_PUT_remote(dpromise_t* myindex_dpromise_array, int dest) {
 	const int count = myindex_dpromise_array->count;
-	const int my_startIndex = MYTHREAD * count;
+	const int my_startIndex = upcxx::global_myrank() * count;
 	const int dest_startIndex = dest * count;
 	const int guid = myindex_dpromise_array->global_id;
 	// 3. Launch an asynchronous copy task to copy the datum to remote node
 	upcxx::global_ptr<char> src_start_address =  &((*myindex_dpromise_array->datum)[my_startIndex]);
 	upcxx::global_ptr<char> dest_start_address = &((*myindex_dpromise_array->datum)[dest_startIndex]);
 	upcxx::event *e = _asyncCopy(src_start_address, dest_start_address, count);
-	int me = MYTHREAD;
+	int me = upcxx::global_myrank();
 	// 4. launch an asyncAfter at dest node such that once this asyncCopy completes, it can copy
 	// the content of datum from its global address space to its private memory and perform a local promise_put
 	_asyncAfter(dest, e, [me, guid]() {
@@ -171,9 +171,9 @@ inline void PROMISE_PUT_remote(dpromise_t* myindex_dpromise_array, int dest) {
 inline void copy_datum_from_private_to_globalAddress(promise_t* promise, void* data) {
 	dpromise_t *myindex_dpromise_array = (dpromise_t *) promise;
 	assert(myindex_dpromise_array->put_initiator_rank == -1);
-	myindex_dpromise_array->put_initiator_rank = MYTHREAD;
+	myindex_dpromise_array->put_initiator_rank = upcxx::global_myrank();
 	const int count = myindex_dpromise_array->count;
-	const int my_startIndex = MYTHREAD * count;
+	const int my_startIndex = upcxx::global_myrank() * count;
 	std::memcpy((char*)(&((*myindex_dpromise_array->datum)[my_startIndex])), data, sizeof(char)*count);
 	__sync_bool_compare_and_swap(&(myindex_dpromise_array->putRequestedFromHome), false, true);	// mark put data is available
 }
@@ -255,7 +255,7 @@ int __promiseGetHome(promise_t* promise) {
 	case PROMISE_KIND_SHARED:
 	{
 		// intra-node promise implementation
-		home = MYTHREAD;
+		home = upcxx::global_myrank();
 		break;
 	}
 	case PROMISE_KIND_DISTRIBUTED_OWNER:
@@ -334,7 +334,7 @@ void dpromise_register_callback(promise_t** promise_list) {
 			myindex_dpromise_array->putRequestedFromHome = true;
 			const int dpromise_guid = myindex_dpromise_array->global_id;
 			const int dest = myindex_dpromise_array->home_rank;
-			const int me = MYTHREAD;
+			const int me = upcxx::global_myrank();
 			asyncAt(dest, [dpromise_guid, me]() {
 				PROMISE_PUT_callback(me, dpromise_guid);
 			});

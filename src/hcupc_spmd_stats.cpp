@@ -115,7 +115,7 @@ void end_finish_spmd_timer() {
  */
 void check_cyclicSteals(int v, int head, int tail, int* queued_thieves) {
 	while(head!=tail) {
-		if(v==queued_thieves[++head % THREADS]) {
+		if(v==queued_thieves[++head % upcxx::global_ranks()]) {
 			total_cyclic_steals++;
 			return;
 		}
@@ -154,7 +154,7 @@ void stats_initTimelineEvents() {
 			app_timesteps[i] = curr_tStep;
 			fail_steals_timeline[i] = 0;
 		}
-		if(MYTHREAD == 0) {
+		if(upcxx::global_myrank() == 0) {
 			printf(">>> HCLIB_APP_EXEC_TIME\t\t= %f seconds\n",app_tTotal);
 		}
 	}
@@ -190,7 +190,7 @@ static void showStats_failedSteals_timeline() {
 		static counter_t timeline[MAX_TIMESTEPS];
 		for(int i=0; i<MAX_TIMESTEPS; i++) timeline[i] = 0;
 		upcxx::reduce<counter_t>(fail_steals_timeline, timeline, MAX_TIMESTEPS, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
-		if(MYTHREAD == 0) {
+		if(upcxx::global_myrank() == 0) {
 			printf("============================ FailStealTimeline Statistics Totals ============================\n");
 			counter_t sum_total_failed_steals = 0;
 			for(int i=0; i<MAX_TIMESTEPS; i++) {
@@ -289,16 +289,16 @@ static void runtime_statistics(double duration) {
 	shared_array<int> push_ind_myPlace;
 	shared_array<int> steal_ind_myPlace;
 
-	push_outd_myPlace.init(THREADS);
-	push_ind_myPlace.init(THREADS);
-	steal_ind_myPlace.init(THREADS);
+	push_outd_myPlace.init(upcxx::global_ranks());
+	push_ind_myPlace.init(upcxx::global_ranks());
+	steal_ind_myPlace.init(upcxx::global_ranks());
 
 	int c1, c2, c3;
 	hclib::gather_comm_worker_stats(&c1, &c2, &c3);
 
-	push_outd_myPlace[MYTHREAD] = c1;
-	push_ind_myPlace[MYTHREAD] = c2;
-	steal_ind_myPlace[MYTHREAD] = c3;
+	push_outd_myPlace[upcxx::global_myrank()] = c1;
+	push_ind_myPlace[upcxx::global_myrank()] = c2;
+	steal_ind_myPlace[upcxx::global_myrank()] = c3;
 #endif
 
 	shared_array<counter_t> tasks_sendto_remotePlace;
@@ -308,23 +308,23 @@ static void runtime_statistics(double duration) {
 	shared_array<counter_t> total_cyclic_steals;
 	shared_array<counter_t> total_rdma_probes;
 
-	tasks_sendto_remotePlace.init(THREADS);
-	total_dist_successSteals.init(THREADS);
-	total_dist_failedSteals.init(THREADS);
-	total_recvStealReqsWhenFree.init(THREADS);
-	total_cyclic_steals.init(THREADS);
-	total_rdma_probes.init(THREADS);
+	tasks_sendto_remotePlace.init(upcxx::global_ranks());
+	total_dist_successSteals.init(upcxx::global_ranks());
+	total_dist_failedSteals.init(upcxx::global_ranks());
+	total_recvStealReqsWhenFree.init(upcxx::global_ranks());
+	total_cyclic_steals.init(upcxx::global_ranks());
+	total_rdma_probes.init(upcxx::global_ranks());
 
 	counter_t c4, c5, c6, c7, c8, c9;
 
 	get_totalAsyncAny_stats(&c4, &c5, &c6, &c7, &c8, &c9);
 
-	tasks_sendto_remotePlace[MYTHREAD] = c4;
-	total_dist_successSteals[MYTHREAD] = c5;
-	total_dist_failedSteals[MYTHREAD] = c6;
-	total_recvStealReqsWhenFree[MYTHREAD] = c7;
-	total_cyclic_steals[MYTHREAD] = c8;
-	total_rdma_probes[MYTHREAD] = c9;
+	tasks_sendto_remotePlace[upcxx::global_myrank()] = c4;
+	total_dist_successSteals[global_myrank()] = c5;
+	total_dist_failedSteals[global_myrank()] = c6;
+	total_recvStealReqsWhenFree[global_myrank()] = c7;
+	total_cyclic_steals[global_myrank()] = c8;
+	total_rdma_probes[global_myrank()] = c9;
 
 	int s1=0, s2=0, s3=0, s4=0, s4P=0;
 	get_steal_stats(&s1, &s2, &s3, &s4, &s4P);
@@ -335,41 +335,41 @@ static void runtime_statistics(double duration) {
 	shared_array<int> total_steal_4;
 	shared_array<int> total_steal_4P;
 
-	total_steal_1.init(THREADS);
-	total_steal_2.init(THREADS);
-	total_steal_3.init(THREADS);
-	total_steal_4.init(THREADS);
-	total_steal_4P.init(THREADS);
+	total_steal_1.init(upcxx::global_ranks());
+	total_steal_2.init(upcxx::global_ranks());
+	total_steal_3.init(upcxx::global_ranks());
+	total_steal_4.init(upcxx::global_ranks());
+	total_steal_4P.init(upcxx::global_ranks());
 
-	total_steal_1[MYTHREAD] = s1;
-	total_steal_2[MYTHREAD] = s2;
-	total_steal_3[MYTHREAD] = s3;
-	total_steal_4[MYTHREAD] = s4;
-	total_steal_4P[MYTHREAD] = s4P;
+	total_steal_1[global_myrank()] = s1;
+	total_steal_2[global_myrank()] = s2;
+	total_steal_3[global_myrank()] = s3;
+	total_steal_4[global_myrank()] = s4;
+	total_steal_4P[global_myrank()] = s4P;
 
 	shared_array<double> tWork_i;
 	shared_array<double> tOvh_i;
 	shared_array<double> tSearch_i;
 
-	tWork_i.init(THREADS);
-	tOvh_i.init(THREADS);
-	tSearch_i.init(THREADS);
+	tWork_i.init(upcxx::global_ranks());
+	tOvh_i.init(upcxx::global_ranks());
+	tSearch_i.init(upcxx::global_ranks());
 	double tWork, tOvh, tSearch;
 	hclib::get_avg_time(&tWork, &tOvh, &tSearch);
-	tWork_i[MYTHREAD] = tWork;
-	tOvh_i[MYTHREAD] = tOvh;
-	tSearch_i[MYTHREAD] = tSearch;
+	tWork_i[global_myrank()] = tWork;
+	tOvh_i[global_myrank()] = tOvh;
+	tSearch_i[global_myrank()] = tSearch;
 
 	hupcpp::barrier();
 #ifdef DIST_WS
-	if(MYTHREAD == 0) {
+	if(global_myrank() == 0) {
 #ifdef HC_COMM_WORKER_STATS
 		int t1=0, t2=0, t3=0;
 #endif
 		counter_t t4=0, t5=0, t6=0, t7=0, t7b=0, t7c=0;
 		int t8=0,t9=0,t10=0,t11=0,t12=0;
 		double t13=0, t14=0, t15=0;
-		for(int i=0; i<THREADS; i++) {
+		for(int i=0; i<upcxx::global_ranks(); i++) {
 #ifdef HC_COMM_WORKER_STATS
 			t1 += push_outd_myPlace[i];
 			t2 += push_ind_myPlace[i];
@@ -393,9 +393,9 @@ static void runtime_statistics(double duration) {
 			t15 += tSearch_i[i];
 		}
 
-		t13 = t13/THREADS;
-		t14 = t14/THREADS;
-		t15 = t15/THREADS;
+		t13 = t13/upcxx::global_ranks();
+		t14 = t14/upcxx::global_ranks();
+		t15 = t15/upcxx::global_ranks();
 
 		printf("============================ MMTk Statistics Totals ============================\n");
 #ifdef HC_COMM_WORKER_STATS
@@ -421,12 +421,12 @@ static void runtime_statistics(double duration) {
 		showStats_failedSteals_timeline();
 	}
 #else // !DIST_WS
-	if(MYTHREAD == 0) {
+	if(global_myrank() == 0) {
 #ifdef HC_COMM_WORKER_STATS
 		int t1=0, t2=0, t3=0;
 #endif
 		counter_t t4=0;
-		for(int i=0; i<THREADS; i++) {
+		for(int i=0; i<upcxx::global_ranks(); i++) {
 #ifdef HC_COMM_WORKER_STATS
 			t1 += push_outd_myPlace[i];
 			t2 += push_ind_myPlace[i];
@@ -454,14 +454,14 @@ static void runtime_statistics(double duration) {
 }
 
 void showStatsHeader() {
-	if(MYTHREAD == 0) {
+	if(global_myrank() == 0) {
 		cout << endl;
 		cout << "-----" << endl;
 		cout << "mkdir timedrun fake" << endl;
 		cout << endl;
 	}
 	initialize_hcWorker();
-	if(MYTHREAD == 0) {
+	if(global_myrank() == 0) {
 		cout << endl;
 		cout << "-----" << endl;
 	}
@@ -471,7 +471,7 @@ void showStatsHeader() {
 void showStatsFooter() {
 	HASSERT(benchmark_start_time_stats != 0);
 	double dur = (((double)(mysecond()-benchmark_start_time_stats))/1000000) * 1000; //msec
-	if(MYTHREAD == 0) {
+	if(global_myrank() == 0) {
 		print_topology_information();
 	}
 	runtime_statistics(dur);

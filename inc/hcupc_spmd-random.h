@@ -52,19 +52,19 @@ inline char * vsdescript(void)
 inline int selectvictim()
 {
 	int last = last_steal;
-	int rank = MYTHREAD;
-	last = (last + 1) % THREADS;
-	if(last == rank) last = (last + 1) % THREADS;
+	int rank = upcxx::global_myrank();
+	last = (last + 1) % upcxx::global_ranks();
+	if(last == rank) last = (last + 1) % upcxx::global_ranks();
 	last_steal = last;
 	return last;
 }
 
 inline void initialize_last_stolen() {
-	last_steal = MYTHREAD;
+	last_steal = upcxx::global_myrank();
 }
 
 inline void resetVictimArray() {
-	last_steal = MYTHREAD;
+	last_steal = upcxx::global_myrank();
 }
 
 #elif defined(__VS_RAND__)
@@ -75,10 +75,10 @@ static int attempts = 1;
 #define CONTACTED       -2
 inline void vsinit()
 {
-	srand(MYTHREAD);
-	victims = (int*) malloc(sizeof(int) * (THREADS));
-	victims_bk = (int*) malloc(sizeof(int) * (THREADS));
-	for(int i=0; i<THREADS; i++) {
+	srand(upcxx::global_myrank());
+	victims = (int*) malloc(sizeof(int) * (upcxx::global_ranks()));
+	victims_bk = (int*) malloc(sizeof(int) * (upcxx::global_ranks()));
+	for(int i=0; i<upcxx::global_ranks(); i++) {
 		victims[i] = NOT_CONTACTED;
 		victims_bk[i] = NOT_CONTACTED;
 	}
@@ -93,19 +93,19 @@ inline int select_randVictim()
 {
 	int vic;
 	do {
-		vic = rand()%THREADS;
-	} while(vic == MYTHREAD);
+		vic = rand()%upcxx::global_ranks();
+	} while(vic == upcxx::global_myrank());
 	return vic;
 }
 
 /*
- * This function when called inside a victim search loop for i=[1,THREADS-1] number of times,
+ * This function when called inside a victim search loop for i=[1,upcxx::global_ranks()-1] number of times,
  * each time it will return a "UNIQUE & RANDOM" victim id. I.e., in each search cycle,
  * a victim already attempted will not be re-attempted. This is to avoid multiple attempts
  * at same victim.
  */
 inline int selectvictim() {
-	while(attempts < THREADS) {
+	while(attempts < upcxx::global_ranks()) {
 		int v = select_randVictim();
 		if(victims[v] == NOT_CONTACTED) {
 			attempts++;
@@ -124,7 +124,7 @@ inline void initialize_last_stolen() {
 }
 
 inline void resetVictimArray() {
-	memcpy(victims, victims_bk, THREADS*sizeof(int));
+	memcpy(victims, victims_bk, upcxx::global_ranks()*sizeof(int));
 	attempts=1;
 }
 
@@ -187,11 +187,11 @@ void qsort_victims(int left, int right) {
 inline void vsinit()
 {
 	int i,j;
-	int rank = MYTHREAD;
+	int rank = upcxx::global_myrank();
 	// allocate & init the victim array
-	victims = new victimInfo_t[THREADS-1];
-	for(i = 0, j = 0; i < THREADS; i++)
-		if(i != MYTHREAD)
+	victims = new victimInfo_t[upcxx::global_ranks()-1];
+	for(i = 0, j = 0; i < upcxx::global_ranks(); i++)
+		if(i != upcxx::global_myrank())
 			victims[j++].rank = i;
 
 	topology t_p;
@@ -201,7 +201,7 @@ inline void vsinit()
 	fscanf(procfile, "%c%d-%d%c%d%c%d%c%d", &a, &t_p.col, &t_p.row, &b, &t_p.cage, &c, &t_p.slot, &d, &t_p.anode);
 	fclose(procfile);
 
-	topology topo_all[THREADS];
+	topology topo_all[upcxx::global_ranks()];
 	upcxx_allgather(&t_p, topo_all, sizeof(topology));
 
 	int my_x = t_p.col;
@@ -211,7 +211,7 @@ inline void vsinit()
 	int my_b = t_p.anode;
 
 	// compute distance, using the coords
-	for(i = 0 ; i < THREADS-1; i++)
+	for(i = 0 ; i < upcxx::global_ranks()-1; i++)
 	{
 		topology* t_i = &topo_all[victims[i].rank];
 
@@ -230,8 +230,8 @@ inline void vsinit()
 		victims[i].distance = d;
 	}
 	// sort in increasing distance order
-	if(THREADS > 2) {
-		qsort_victims(0, THREADS-2);
+	if(upcxx::global_ranks() > 2) {
+		qsort_victims(0, upcxx::global_ranks()-2);
 	}
 }
 
@@ -244,7 +244,7 @@ static int* victims = NULL;
 
 inline void vsinit()
 {
-	int rank = MYTHREAD;
+	int rank = upcxx::global_myrank();
 	int row, column, chasis, blade, node;
 	FILE * procfile = fopen("/proc/cray_xt/cname","r");
 	HASSERT(procfile);
