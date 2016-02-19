@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "hcupc_spmd-distributed-promise.h"
 #include <unordered_map>
 
+
 namespace hupcpp {
 
 std::unordered_map<int, dpromise_t*> distributed_promise_guid_map;
