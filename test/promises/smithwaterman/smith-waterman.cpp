@@ -213,13 +213,17 @@ static int diagonal_block_cyclic_distribution_function ( int guid, int tag_offse
 
 int main ( int argc, char* argv[] ) {
     hupcpp::launch(&argc, &argv, [=]() {
-	    int rank=MYTHREAD, nproc=THREADS;
+        int rank = upcxx::global_myrank();
+        int nproc = upcxx::global_ranks();
 
-	    if (rank == 0) {
-	    	if ( argc < 7 ) {
-	    		printf("Usage: %s fileName1 fileName2 outerTileWidth outerTileHeight innerTileWidth innerTileHeight\n", argv[0]);
-	    		exit(-1);
-	    	}
+        fprintf(stderr, "rank=%d nproc=%d argc=%d\n", rank, nproc, argc);
+        return;
+
+        if ( argc < 7 ) {
+            if (rank == 0) {
+                printf("Usage: %s fileName1 fileName2 outerTileWidth outerTileHeight innerTileWidth innerTileHeight\n", argv[0]);
+            }
+            exit(-1);
         }
 
 
