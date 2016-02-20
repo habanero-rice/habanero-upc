@@ -140,7 +140,7 @@ void increment_task_in_flight_self() {
 }
 
 /*
- * Used only at the source. This is used only when asyncCopy is invoked
+ * Used only at the source. This is used only when async_copy is invoked
  */
 inline void decrement_task_in_flight_self(int tasks) {
 	(&asyncsInFlightCountLock[upcxx::global_myrank()])->lock();

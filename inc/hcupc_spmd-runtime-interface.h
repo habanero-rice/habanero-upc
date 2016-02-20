@@ -118,16 +118,16 @@ typedef struct _loop_domain_t {
 
 template <typename T>
 inline void forasync1D(loop_domain_t* loop, T lambda, int mode=FORASYNC_MODE_RECURSIVE) {
-	hclib::forasync1D_internal<T>((hclib::loop_domain_t*)loop, lambda, mode);
+	hclib::forasync1D_internal<T>((hclib::loop_domain_t*)loop, lambda, mode, ANY_PLACE, NO_FUTURE);
 }
 
 template <typename T>
 inline void forasync2D(loop_domain_t* loop, T lambda, int mode=FORASYNC_MODE_RECURSIVE) {
-	hclib::forasync2D_internal<T>((hclib::loop_domain_t*)loop, lambda, mode);
+	hclib::forasync2D_internal<T>((hclib::loop_domain_t*)loop, lambda, mode, ANY_PLACE, NO_FUTURE);
 }
 
 template <typename T>
 inline void forasync3D(loop_domain_t* loop, T lambda, int mode=FORASYNC_MODE_RECURSIVE) {
-	hclib::forasync3D_internal<T>((hclib::loop_domain_t*)loop, lambda, mode);
+	hclib::forasync3D_internal<T>((hclib::loop_domain_t*)loop, lambda, mode, ANY_PLACE, NO_FUTURE);
 }
 }

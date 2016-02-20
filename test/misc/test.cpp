@@ -18,20 +18,34 @@ void fib(int n, int* res)
     }
 }
 
-int main(int argc, char **argv)
-{
-  hupcpp::init(&argc, &argv);
-  auto f = [](){ int r; fib(20, &r); std::cout << MYTHREAD << ":" << hupcpp::get_hc_wid() << "--> Fib = " << r << std::endl;};
-  hupcpp::finish_spmd([=]() {
-    for(int i=0; i<THREADS; i++) {
-      if(i != MYTHREAD) {
-        hupcpp::asyncAt(i,[=](){
-		f();
-	});
-      }
-    }
+void log(const char *msg) {
+    printf(">>> rank = %d # ranks = %d <<<< %s\n", upcxx::global_myrank(),
+            upcxx::global_ranks(), msg);
+}
+
+int main(int argc, char **argv) {
+  hupcpp::launch(&argc, &argv, [=] {
+      auto f = [](){ int r; fib(20, &r); std::cout << upcxx::global_myrank() << ":" << hupcpp::get_hc_wid() << "--> Fib = " << r << std::endl;};
+      log("beginning");
+      upcxx::barrier();
+      log("after barrier");
+
+      /*
+      hclib::finish([=] {
+          hclib::async([=] { printf("Howdy!\n"); });
+          hclib::async([=] { printf("Hello!\n"); });
+      });
+      hupcpp::finish_spmd([=]() {
+        for(int i=0; i<upcxx::global_ranks(); i++) {
+          if(i != upcxx::global_myrank()) {
+            hupcpp::asyncAt(i,[=](){
+            f();
+        });
+          }
+        }
+      });
+      */
+      log("ending");
   });
-  cout <<MYTHREAD <<": Out of finish_spmd" << endl;
-  hupcpp::finalize();
   return 0;
 }

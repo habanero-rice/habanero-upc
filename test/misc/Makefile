@@ -26,7 +26,7 @@ arrayadd1d.o: arrayadd1d.cpp
 	$(CXX) $(PROJECT_CXXFLAGS) -c $^
 
 arrayadd1d: arrayadd1d.o
-	$(CXX_LINKER) $(PROJECT_LDFLAGS) -o $@ $^ $(PROJECT_LDLIBS)
+	$(CXX_LINKER) -o $@ $^ $(PROJECT_LDFLAGS) $(PROJECT_LDLIBS)
 
 clean-obj:
 	rm -rf *.o *.dSYM

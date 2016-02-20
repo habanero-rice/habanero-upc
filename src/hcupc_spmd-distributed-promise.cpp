@@ -63,7 +63,7 @@ inline void _asyncAfter(int p, upcxx::event *e, T lambda) {
 }
 
 template <typename T>
-inline upcxx::event* _asyncCopy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> dst, size_t count) {
+inline upcxx::event* _async_copy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> dst, size_t count) {
 	// event allocation taken out of lambda to implement the distributed promise
 	// as in case of remote put we will use this event to launch
 	// an upcxx::async_after
@@ -71,7 +71,7 @@ inline upcxx::event* _asyncCopy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> d
 	HASSERT(e != NULL);
 	auto lambda = [=]() {
 		upcxx::async_copy(src, dst, count, e);
-		upcxx::async_after(upcxx::global_myrank(), e, NULL)(async_after_asyncCopy, (void*)NULL);
+		upcxx::async_after(upcxx::global_myrank(), e, NULL)(async_after_async_copy, (void*)NULL);
 	};
 	allocate_comm_task<decltype(lambda)>(lambda);
 	return e;
@@ -155,9 +155,9 @@ inline void PROMISE_PUT_remote(dpromise_t* myindex_dpromise_array, int dest) {
 	// 3. Launch an asynchronous copy task to copy the datum to remote node
 	upcxx::global_ptr<char> src_start_address =  &((*myindex_dpromise_array->datum)[my_startIndex]);
 	upcxx::global_ptr<char> dest_start_address = &((*myindex_dpromise_array->datum)[dest_startIndex]);
-	upcxx::event *e = _asyncCopy(src_start_address, dest_start_address, count);
+	upcxx::event *e = _async_copy(src_start_address, dest_start_address, count);
 	int me = upcxx::global_myrank();
-	// 4. launch an asyncAfter at dest node such that once this asyncCopy completes, it can copy
+	// 4. launch an asyncAfter at dest node such that once this async_copy completes, it can copy
 	// the content of datum from its global address space to its private memory and perform a local promise_put
 	_asyncAfter(dest, e, [me, guid]() {
 		PROMISE_PUT_home(guid, me);

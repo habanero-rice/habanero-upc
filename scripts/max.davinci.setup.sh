@@ -29,9 +29,9 @@ export BASE=${HOME}/degas/habanero-upc
 ################################################
 
 # COMPILERS (fixed values unless you are building on Edison)
-export CXX=mpiicpc
-export CXX_LINKER=mpiicpc
-export CC=mpiicc
+export CXX=mpic++
+export CXX_LINKER=mpic++
+export CC=mpicc
 
 export HCLIB_ROOT=${HCLIB_BASE}/hclib-install
 export HABANERO_UPC_ROOT=${BASE}/habanero-upc-install

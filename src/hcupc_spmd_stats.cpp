@@ -294,7 +294,7 @@ static void runtime_statistics(double duration) {
 	steal_ind_myPlace.init(upcxx::global_ranks());
 
 	int c1, c2, c3;
-	hclib::gather_comm_worker_stats(&c1, &c2, &c3);
+	// hclib::gather_comm_worker_stats(&c1, &c2, &c3);
 
 	push_outd_myPlace[upcxx::global_myrank()] = c1;
 	push_ind_myPlace[upcxx::global_myrank()] = c2;
@@ -355,7 +355,7 @@ static void runtime_statistics(double duration) {
 	tOvh_i.init(upcxx::global_ranks());
 	tSearch_i.init(upcxx::global_ranks());
 	double tWork, tOvh, tSearch;
-	hclib::get_avg_time(&tWork, &tOvh, &tSearch);
+	// hclib::get_avg_time(&tWork, &tOvh, &tSearch);
 	tWork_i[global_myrank()] = tWork;
 	tOvh_i[global_myrank()] = tOvh;
 	tSearch_i[global_myrank()] = tSearch;
@@ -460,7 +460,7 @@ void showStatsHeader() {
 		cout << "mkdir timedrun fake" << endl;
 		cout << endl;
 	}
-	initialize_hcWorker();
+	// initialize_hcWorker();
 	if(global_myrank() == 0) {
 		cout << endl;
 		cout << "-----" << endl;

@@ -212,7 +212,9 @@ static int diagonal_block_cyclic_distribution_function ( int guid, int tag_offse
 }
 
 int main ( int argc, char* argv[] ) {
-    hupcpp::launch(&argc, &argv, [=]() {
+
+    hupcpp::launch(&argc, &argv, [=] {
+
         int rank = upcxx::global_myrank();
         int nproc = upcxx::global_ranks();
 
@@ -226,6 +228,7 @@ int main ( int argc, char* argv[] ) {
             exit(-1);
         }
 
+        /*
 
 	    int i, j, index;
         if (TRACE) fprintf(stderr, "Inside main lambda\n");
@@ -241,6 +244,8 @@ int main ( int argc, char* argv[] ) {
 
 	    int n_inner_tiles_width = outer_tile_width / inner_tile_width;
 	    int n_inner_tiles_height = outer_tile_height / inner_tile_height;
+
+        return;
 
 	    if (rank == 0) {
 	    	if ( outer_tile_width % inner_tile_width != 0 ) {
@@ -519,6 +524,7 @@ int main ( int argc, char* argv[] ) {
 	    	int score = ((int *)hupcpp::FUTURE_GET(tile_matrix[i_domain-1][j_domain-1].bottom_row->get_future()))[inner_tile_width-1];
 	    	printf( "score: %d\n", score);
 	    }
+        */
     });
 
 	return 0;

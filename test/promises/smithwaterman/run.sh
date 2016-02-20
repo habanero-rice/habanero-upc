@@ -51,6 +51,6 @@ fi
 
 export HCLIB_WORKERS=6
 echo "mpirun -np ${NODES} ./smith-waterman ${INPUT_FILE_1} ${INPUT_FILE_2} ${TILE_WIDTH} ${TILE_HEIGHT} ${INNER_TILE_WIDTH} ${INNER_TILE_HEIGHT}"
-mpirun -np ${NODES} ./smith-waterman ${INPUT_FILE_1} ${INPUT_FILE_2} ${TILE_WIDTH} ${TILE_HEIGHT} ${INNER_TILE_WIDTH} ${INNER_TILE_HEIGHT}
-# srun --partition=interactive --exclusive --time=5 --nodes=${NODES} --ntasks-per-node=2 --cpus-per-task=6 ./smith-waterman ${INPUT_FILE_1} ${INPUT_FILE_2} ${TILE_WIDTH} ${TILE_HEIGHT} ${INNER_TILE_WIDTH} ${INNER_TILE_HEIGHT}
+# mpirun -np ${NODES} ./smith-waterman ${INPUT_FILE_1} ${INPUT_FILE_2} ${TILE_WIDTH} ${TILE_HEIGHT} ${INNER_TILE_WIDTH} ${INNER_TILE_HEIGHT}
+srun --partition=interactive --exclusive --time=5 --nodes=${NODES} --ntasks-per-node=2 --cpus-per-task=6 ./smith-waterman ${INPUT_FILE_1} ${INPUT_FILE_2} ${TILE_WIDTH} ${TILE_HEIGHT} ${INNER_TILE_WIDTH} ${INNER_TILE_HEIGHT}
 

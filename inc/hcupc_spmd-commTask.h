@@ -161,7 +161,7 @@ inline void asyncAt(int p, T lambda) {
 	allocate_comm_task<decltype(lambda2)>(lambda2);
 }
 
-inline void async_after_asyncCopy(void* promise) {
+inline void async_after_async_copy(void* promise) {
 	queue_source_place_of_remoteTask(upcxx::global_myrank());
 	if(promise) {
 		register_incoming_async_promise(promise);
@@ -169,12 +169,12 @@ inline void async_after_asyncCopy(void* promise) {
 }
 
 template <typename T>
-inline void asyncCopy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> dst, size_t count, promise_t* promise=NULL) {
+inline void async_copy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> dst, size_t count, promise_t* promise=NULL) {
 	auto lambda = [=]() {
 		upcxx::event* e = get_upcxx_event();
 		HASSERT(e != NULL);
 		upcxx::async_copy(src, dst, count, e);
-		upcxx::async_after(upcxx::global_myrank(), e, NULL)(async_after_asyncCopy, (void*)promise);
+		upcxx::async_after(upcxx::global_myrank(), e, NULL)(async_after_async_copy, (void*)promise);
 	};
 	allocate_comm_task<decltype(lambda)>(lambda);
 }

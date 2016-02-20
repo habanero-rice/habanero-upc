@@ -53,13 +53,13 @@ extern void (*hclib_distributed_future_register_callback)(
 void launch(int *argc, char ***argv, std::function<void()> lambda) {
     hclib_distributed_future_register_callback = dpromise_register_callback;
 
-    hclib::launch(argc, *argv, [=]() {
-            upcxx::init(argc, argv);
-            hupcpp::showStatsHeader();
-            lambda();
-            hupcpp::showStatsFooter();
-            upcxx::finalize();
-        });
+    // hclib::launch(argc, *argv, [=]() {
+        upcxx::init(argc, argv);
+        hupcpp::showStatsHeader();
+        lambda();
+        hupcpp::showStatsFooter();
+        upcxx::finalize();
+    // });
 }
 
 void initialize_hcWorker() {
@@ -71,7 +71,7 @@ void initialize_hcWorker() {
 }
 
 /*
- * upcxx::event management for asyncCopy
+ * upcxx::event management for async_copy
  */
 typedef struct event_list {
 	upcxx::event e;
@@ -107,7 +107,7 @@ upcxx::event* get_upcxx_event() {
 }
 
 /*
- * upcxx::event management for asyncCopy
+ * upcxx::event management for async_copy
  */
 inline void free_upcxx_event_list() {
 	while(event_list_head) {
@@ -400,48 +400,48 @@ void hclib_finish_barrier() {
 #endif
 
 void finish_spmd(std::function<void()> lambda) {
-	HASSERT(hc_workers_initialized);
-	cb_init();
-	start_finish_spmd_timer();
-	/*
-	 * we support distributed workstealing only if each
-	 * place has a communication worker, i.e. hc_workers > 1
-	 */
-	hupcpp::barrier();
-	const bool comm_worker = true;//hc_workers > 1 && upcxx::global_ranks() > 1;
+    HASSERT(hc_workers_initialized);
+    cb_init();
+    start_finish_spmd_timer();
+    /*
+     * we support distributed workstealing only if each
+     * place has a communication worker, i.e. hc_workers > 1
+     */
+    hupcpp::barrier();
+    const bool comm_worker = true;//hc_workers > 1 && upcxx::global_ranks() > 1;
 
-	current_finish_counter = hclib::start_finish_special();
+    current_finish_counter = hclib::start_finish_special();
 
-	// launch async tasks in immediate scopr of the finish_spmd in user program
-	lambda();
+    // launch async tasks in immediate scopr of the finish_spmd in user program
+    lambda();
 
-	if(comm_worker) {
-		/*
-		 * The termiantion detection is the job of communication worker.
-		 * This is also treated as an async task and hence we wrap the
-		 * termination detection task in an async_comm such that it
-		 * gets scheduled only at out_deq of communication worker. It
-		 * has while loop, which the comm worker loops upon once it pops
-		 * this task from its out_deq.
-		 *
-		 * We never allow any other/more task to queue at out_deq of comm worker
-		 * as in this design it will never pop and execute. We maintain an auxiliary
-		 * deque outside the OCR/CRT runtine i.e. inside hcupc_spmd and mark all the ocr's out_deq
-		 * bounded task to this deque. Inside the termiantion detection phase the comm worker
-		 * pops the tasks as necessary.
-		 */
-		auto comm_lambda_finish = [=] () {
-			hclib_finish_barrier();
-		};
-		async_comm(comm_lambda_finish);
-	}
+    if(comm_worker) {
+        /*
+         * The termiantion detection is the job of communication worker.
+         * This is also treated as an async task and hence we wrap the
+         * termination detection task in an async_comm such that it
+         * gets scheduled only at out_deq of communication worker. It
+         * has while loop, which the comm worker loops upon once it pops
+         * this task from its out_deq.
+         *
+         * We never allow any other/more task to queue at out_deq of comm worker
+         * as in this design it will never pop and execute. We maintain an auxiliary
+         * deque outside the OCR/CRT runtine i.e. inside hcupc_spmd and mark all the ocr's out_deq
+         * bounded task to this deque. Inside the termiantion detection phase the comm worker
+         * pops the tasks as necessary.
+         */
+        auto comm_lambda_finish = [=] () {
+            hclib_finish_barrier();
+        };
+        async_comm(comm_lambda_finish);
+    }
 
-	/*
-	 * this finish will end only if all the local and remote tasks terminates
-	 */
+    /*
+     * this finish will end only if all the local and remote tasks terminates
+     */
     hclib::end_finish();
-	free_upcxx_event_list();
-	end_finish_spmd_timer();
+    free_upcxx_event_list();
+    end_finish_spmd_timer();
 }
 
 }
