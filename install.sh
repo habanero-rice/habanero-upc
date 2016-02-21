@@ -30,13 +30,8 @@ if [ $all -eq 1 ]; then
     echo "================== BUILDING HCLIB ==================="
     cd ${HCLIB_BASE}
     ./clobber.sh
-    if [ -n "${HCUPC_FLAGS}" ]; then
-	echo "HCLIB Build Flags: ${HCUPC_FLAGS} --enable-hupcpp"
-    	HCLIB_FLAGS="${HCUPC_FLAGS} --enable-hupcpp" ./install.sh
-    else
-	echo "HCLIB Build Flags: --enable-hupcpp"
-    	HCLIB_FLAGS="--enable-hupcpp" ./install.sh
-    fi 
+    echo "HCLIB Build Flags: ${HCUPC_FLAGS} --enable-hupcpp"
+    HCLIB_FLAGS="${HCUPC_FLAGS} --enable-hupcpp" ./install.sh
 fi
 
 echo "================== BUILDING HABANERO_UPC =============="

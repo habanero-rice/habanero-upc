@@ -53,13 +53,13 @@ extern void (*hclib_distributed_future_register_callback)(
 void launch(int *argc, char ***argv, std::function<void()> lambda) {
     hclib_distributed_future_register_callback = dpromise_register_callback;
 
-    // hclib::launch(argc, *argv, [=]() {
+    hclib::launch(argc, *argv, [=]() {
         upcxx::init(argc, argv);
         hupcpp::showStatsHeader();
         lambda();
         hupcpp::showStatsFooter();
         upcxx::finalize();
-    // });
+    });
 }
 
 void initialize_hcWorker() {
@@ -137,13 +137,13 @@ int barrier() {
  * This is adapted from:
  * Olivier, S., Prins, J.: Scalable dynamic load balancing using upc. In: ICPP. pp.123�131 (2008)
  */
-upcxx::shared_var<int> cb_cancel;
-upcxx::shared_var<int> cb_count;
-upcxx::shared_var<int> cb_done;
-upcxx::shared_lock cb_lock;
+upcxx::shared_var<int> *cb_cancel;
+upcxx::shared_var<int> *cb_count;
+upcxx::shared_var<int> *cb_done;
+upcxx::shared_lock *cb_lock = new upcxx::shared_lock();
 bool workAvailInit = false;
-#define CB_LOCK		cb_lock.lock()
-#define CB_UNLOCK	cb_lock.unlock()
+#define CB_LOCK		cb_lock->lock()
+#define CB_UNLOCK	cb_lock->unlock()
 #define NO_TERM   0
 #define TERM      1
 
@@ -159,9 +159,9 @@ inline bool initiate_global_steal() {
  */
 void cb_init() {
 	CB_LOCK;
-	cb_count = 0;
-	cb_cancel = 0;
-	cb_done = 0;
+	cb_count = new upcxx::shared_var<int>(0);
+	cb_cancel = new upcxx::shared_var<int>(0);
+	cb_done = new upcxx::shared_var<int>(0);
 	CB_UNLOCK;
 #ifdef DIST_WS
 	hclib::registerHCUPC_callback(&idle_workers);
@@ -174,9 +174,9 @@ void cb_init() {
  */
 inline int cbarrier_inc() {
 	CB_LOCK;
-	cb_count = cb_count + 1;
+	*cb_count = *cb_count + 1;
 	CB_UNLOCK;
-	if (cb_count == upcxx::global_ranks()) {
+	if (*cb_count == upcxx::global_ranks()) {
 		return TERM;
 	}
 	else {
@@ -190,16 +190,16 @@ inline int cbarrier_inc() {
 inline int cbarrier_dec() {
 	int status = TERM;
 	CB_LOCK;
-	if (cb_count < upcxx::global_ranks()) {
+	if (*cb_count < upcxx::global_ranks()) {
 		status = NO_TERM;
-		cb_count = cb_count - 1;
+		*cb_count = *cb_count - 1;
 	}
 	CB_UNLOCK;
 	return status;
 }
 
 inline int cbarrier_test() {
-	return  (cb_count == upcxx::global_ranks())? TERM : NO_TERM;
+	return  (*cb_count == upcxx::global_ranks())? TERM : NO_TERM;
 }
 
 /*
