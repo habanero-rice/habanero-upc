@@ -63,7 +63,7 @@ inline int numWorkers() {
 	return hclib::num_workers();
 }
 
-inline int totalPendingLocalAsyncs() {
+inline int total_pending_local_asyncs() {
 	return hclib::total_pending_local_asyncs() - 1;
 }
 

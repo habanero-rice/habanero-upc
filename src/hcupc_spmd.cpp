@@ -54,16 +54,36 @@ void launch(int *argc, char ***argv, std::function<void()> lambda) {
     hclib_distributed_future_register_callback = dpromise_register_callback;
 
     hclib::launch(argc, *argv, [=]() {
-        upcxx::init(argc, argv);
+        hclib::finish([=] {
+            hclib::async_comm([=] {
+                upcxx::init(argc, argv);
+                fprintf(stderr, "Initializing %d upcxx %p\n", upcxx::global_myrank(), pthread_self());
+            });
+        });
+
         hupcpp::showStatsHeader();
-        lambda();
+        hclib::finish([=] {
+            hclib::async([=] {
+                lambda();
+            });
+        });
         hupcpp::showStatsFooter();
-        upcxx::finalize();
+
+        hclib::finish([=] {
+            hclib::async_comm([=] {
+                fprintf(stderr, "Finalizing %d %p\n", upcxx::global_myrank(), pthread_self());
+                upcxx::finalize();
+            });
+        });
     });
 }
 
 void initialize_hcWorker() {
-	initialize_distws_setOfThieves();
+    finish([=] {
+        async_comm([=] {
+            initialize_distws_set_of_thieves();
+        });
+    });
 	hc_workers = numWorkers();
 	assert(hc_workers > 0);
 	semiConcDequeInit();
@@ -137,10 +157,7 @@ int barrier() {
  * This is adapted from:
  * Olivier, S., Prins, J.: Scalable dynamic load balancing using upc. In: ICPP. pp.123�131 (2008)
  */
-static upcxx::shared_var<unsigned int> cb_count;
-static upcxx::shared_lock cb_lock;
-#define CB_LOCK		cb_lock.lock()
-#define CB_UNLOCK	cb_lock.unlock()
+static upcxx::shared_array<upcxx::atomic<unsigned int > > cb_count;
 #define NO_TERM   0
 #define TERM      1
 
@@ -155,9 +172,8 @@ inline bool initiate_global_steal() {
  * termination detection helper function
  */
 static void cb_init() {
-	// CB_LOCK;
-	cb_count = 0;
-	// CB_UNLOCK;
+    cb_count.init(1);
+    // cb_count = 0;
 #ifdef DIST_WS
 	hclib::registerHCUPC_callback(&idle_workers);
 	idle_workers_threshold = hc_workers > 12 ? 2 : 0;	// heuristic for 24 core edison node only !!!
@@ -168,13 +184,11 @@ static void cb_init() {
  * termination detection helper function
  */
 inline int cbarrier_inc() {
-	CB_LOCK;
-	cb_count = cb_count + 1;
-	CB_UNLOCK;
-	if (cb_count == upcxx::global_ranks()) {
+    global_ptr<upcxx::atomic<unsigned int> > obj = &cb_count[0];
+    unsigned int curr_count = upcxx::fetch_add(obj, 1);
+	if (curr_count + 1 == upcxx::global_ranks()) {
 		return TERM;
-	}
-	else {
+	} else {
 		return NO_TERM;
 	}
 }
@@ -184,17 +198,17 @@ inline int cbarrier_inc() {
  */
 inline int cbarrier_dec() {
 	int status = TERM;
-	CB_LOCK;
-	if (cb_count < upcxx::global_ranks()) {
+    global_ptr<upcxx::atomic<unsigned int> > obj = &cb_count[0];
+    if (upcxx::fetch_add(obj, 0) < upcxx::global_ranks()) {
 		status = NO_TERM;
-		cb_count = cb_count - 1;
+        upcxx::fetch_add(obj, -1);
 	}
-	CB_UNLOCK;
 	return status;
 }
 
 inline int cbarrier_test() {
-	return  (cb_count == upcxx::global_ranks())? TERM : NO_TERM;
+    global_ptr<upcxx::atomic<unsigned int> > obj = &cb_count[0];
+	return  (upcxx::fetch_add(obj, 0) == upcxx::global_ranks())? TERM : NO_TERM;
 }
 
 /*
@@ -216,7 +230,7 @@ void send_taskto_comm_worker(comm_async_task* task) {
  */
 inline void pop_execute_comm_task() {
 	bool success = true;
-	while(success) {
+	while (success) {
 		comm_async_task task;
 		success = comm_task_pop(&task);
 		if(success) {
@@ -256,28 +270,28 @@ void hclib_finish_barrier_distWS() {
 
 		upcxx::advance();
 		bool tasksReceived = received_tasks_from_victim();
-		if(tasksReceived) {
+		if (tasksReceived) {
 			decrement_tasks_in_flight_count();
 		}
 		bool tryTermination = true;
 
-		// 1. If i have extra tasks then I should feed others
-		if(!initiate_global_steal()) {
+		if (!initiate_global_steal()) {
+            // 1. If i have extra tasks then I should feed others
 			serve_pending_distSteal_request();
-		}
-
-		// 2. If my workers are asking global steals then I should try dist ws
-		else {
+		} else {
+            // 2. If my workers are asking global steals then I should try dist ws
 			bool success = search_tasks_globally();
-			if(success) tryTermination = false;
+			if (success) tryTermination = false;
 		}
 
-		// 3. If I failed stealing and my workers are idle, I should try termination
-		if(tryTermination && totalPendingLocalAsyncs() == 0 && total_asyncs_inFlight() == 0) {
-			if(singlePlace) break;
+		if (tryTermination && total_pending_local_asyncs() == 0 &&
+                total_asyncs_in_flight() == 0) {
+            // 3. If I failed stealing and my workers are idle, I should try termination
+			if (singlePlace) break;
 			status = cbarrier_inc();
 			while (status != TERM) {
-				const bool isTrue = (received_tasks_from_victim() || detectWork()) && cbarrier_dec() != TERM;
+                const bool isTrue = (received_tasks_from_victim() ||
+                        detect_work()) && cbarrier_dec() != TERM;
 				if (isTrue) {
 					status = NO_TERM;
 					break;
@@ -290,7 +304,7 @@ void hclib_finish_barrier_distWS() {
 		}
 	}
 
-	HASSERT(totalPendingLocalAsyncs() == 0);
+	HASSERT(total_pending_local_asyncs() == 0);
 
 	hupcpp::barrier();
 }
@@ -319,11 +333,11 @@ void hclib_finish_barrier_baseline_distWS() {
 		}
 
 		// 3. If I failed stealing and my workers are idle, I should try termination
-		if(tryTermination && totalPendingLocalAsyncs() == 0 && total_asyncs_inFlight() == 0) {
+		if(tryTermination && total_pending_local_asyncs() == 0 && total_asyncs_in_flight() == 0) {
 			if(singlePlace) break;
 			status = cbarrier_inc();
 			while (status != TERM) {
-				const bool isTrue = detectWork() && cbarrier_dec() != TERM;
+				const bool isTrue = detect_work() && cbarrier_dec() != TERM;
 				if (isTrue) {
 					status = NO_TERM;
 					break;
@@ -336,7 +350,7 @@ void hclib_finish_barrier_baseline_distWS() {
 		}
 	}
 
-	HASSERT(totalPendingLocalAsyncs() == 0);
+	HASSERT(total_pending_local_asyncs() == 0);
 
 	hupcpp::barrier();
 }
@@ -359,6 +373,7 @@ void hclib_finish_barrier() {
 	const bool singlePlace = upcxx::global_ranks() == 1;
 
 	while (status != TERM) {
+        fprintf(stderr, "WAITING %d %p\n", upcxx::global_myrank(), pthread_self());
 		pop_execute_comm_task();
 
 		publish_local_load_info();
@@ -366,15 +381,15 @@ void hclib_finish_barrier() {
 		upcxx::advance();
 
 		bool tasksReceived = received_tasks_from_victim();
-		if(tasksReceived) {
+		if (tasksReceived) {
 			decrement_tasks_in_flight_count();
 		}
 
-		if(totalPendingLocalAsyncs() == 0 && total_asyncs_inFlight() == 0) {
-			if(singlePlace) break;
+		if (total_pending_local_asyncs() == 0 && total_asyncs_in_flight() == 0) {
+			if (singlePlace) break;
 			status = cbarrier_inc();
 			while (status != TERM) {
-				const bool isTrue = (received_tasks_from_victim() || detectWork()) && cbarrier_dec() != TERM;
+				const bool isTrue = (received_tasks_from_victim() || detect_work()) && cbarrier_dec() != TERM;
 				if (isTrue) {
 					status = NO_TERM;
 					break;
@@ -386,8 +401,9 @@ void hclib_finish_barrier() {
 			}
 		}
 	}
+    fprintf(stderr, "DONE WAITING\n");
 
-	HASSERT(totalPendingLocalAsyncs() == 0);
+	HASSERT(total_pending_local_asyncs() == 0);
 
 	hupcpp::barrier();
 }
@@ -396,45 +412,50 @@ void hclib_finish_barrier() {
 
 void finish_spmd(std::function<void()> lambda) {
     HASSERT(hc_workers_initialized);
-    cb_init();
+    hclib::finish([=] {
+            async_comm([=] {
+                cb_init();
+            });
+        });
     start_finish_spmd_timer();
-    /*
-     * we support distributed workstealing only if each
-     * place has a communication worker, i.e. hc_workers > 1
-     */
-    hupcpp::barrier();
-    const bool comm_worker = true;//hc_workers > 1 && upcxx::global_ranks() > 1;
 
+    hupcpp::barrier();
+
+    /*
+     * Start a finish scope, the only "special" thing about start_finish_special
+     * is that it returns a pointer to the task counter for the created finish
+     * scope which we save here. Otherwise, it is a regular start_finish call.
+     */
     current_finish_counter = hclib::start_finish_special();
 
-    // launch async tasks in immediate scopr of the finish_spmd in user program
+    // launch async tasks in immediate scope of the finish_spmd in user program
     lambda();
 
-    if (comm_worker) {
-        /*
-         * The termiantion detection is the job of communication worker.
-         * This is also treated as an async task and hence we wrap the
-         * termination detection task in an async_comm such that it
-         * gets scheduled only at out_deq of communication worker. It
-         * has while loop, which the comm worker loops upon once it pops
-         * this task from its out_deq.
-         *
-         * We never allow any other/more task to queue at out_deq of comm worker
-         * as in this design it will never pop and execute. We maintain an auxiliary
-         * deque outside the OCR/CRT runtine i.e. inside hcupc_spmd and mark all the ocr's out_deq
-         * bounded task to this deque. Inside the termiantion detection phase the comm worker
-         * pops the tasks as necessary.
-         */
-        auto comm_lambda_finish = [=] () {
-            hclib_finish_barrier();
-        };
-        async_comm(comm_lambda_finish);
-    }
+    /*
+     * The termination detection is the job of communication worker.
+     * This is also treated as an async task and hence we wrap the
+     * termination detection task in an async_comm such that it
+     * gets scheduled only at out_deq of communication worker. It
+     * has while loop, which the comm worker loops upon once it pops
+     * this task from its out_deq.
+     *
+     * We never allow any other/more task to queue at out_deq of comm worker
+     * as in this design it will never pop and execute. We maintain an auxiliary
+     * deque outside the OCR/CRT runtine i.e. inside hcupc_spmd and mark all the ocr's out_deq
+     * bounded task to this deque. Inside the termiantion detection phase the comm worker
+     * pops the tasks as necessary.
+     */
+    async_comm([=] {
+        fprintf(stderr, "hclib_finish_barrier %d %p\n", upcxx::global_myrank(), pthread_self());
+        hclib_finish_barrier();
+    });
 
     /*
      * this finish will end only if all the local and remote tasks terminates
      */
+    fprintf(stderr, "Before final end finish\n");
     hclib::end_finish();
+    fprintf(stderr, "After final end finish\n");
     free_upcxx_event_list();
     end_finish_spmd_timer();
 }

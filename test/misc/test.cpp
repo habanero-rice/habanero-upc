@@ -38,12 +38,7 @@ int main(int argc, char **argv) {
       // auto f = [](){ int r; fib(20, &r); std::cout << upcxx::global_myrank() << ":" << hupcpp::get_hc_wid() << "--> Fib = " << r << std::endl;};
       // log("beginning");
       hupcpp::barrier();
-      // log("after barrier");
-
-      // upcxx::shared_lock *cb_lock = new upcxx::shared_lock();
-      // cb_lock->lock();
-      // upcxx::shared_var<unsigned int> *tmp = new upcxx::shared_var<unsigned int>(0);
-      // cb_lock->unlock();
+      log("after barrier");
 
       hupcpp::finish_spmd([=]() {
           log("inside finish_spmd");
@@ -58,7 +53,6 @@ int main(int argc, char **argv) {
       */
       });
       log("ending");
-      // upcxx::finalize();
   });
   return 0;
 }

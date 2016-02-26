@@ -142,7 +142,7 @@ static double app_tTotal = -1;
 static double app_tEnd = -1;
 
 void stats_initTimelineEvents() {
-	if(app_total_time_estimate) {
+	if (app_total_time_estimate) {
 		assert(app_total_time_estimate != NULL);
 		app_tTotal = atof(app_total_time_estimate);
 		app_tStart = mysecond();
@@ -154,7 +154,7 @@ void stats_initTimelineEvents() {
 			app_timesteps[i] = curr_tStep;
 			fail_steals_timeline[i] = 0;
 		}
-		if(upcxx::global_myrank() == 0) {
+		if (upcxx::global_myrank() == 0) {
 			printf(">>> HCLIB_APP_EXEC_TIME\t\t= %f seconds\n",app_tTotal);
 		}
 	}
@@ -454,14 +454,14 @@ static void runtime_statistics(double duration) {
 }
 
 void showStatsHeader() {
-	if(global_myrank() == 0) {
+	if (global_myrank() == 0) {
 		cout << endl;
 		cout << "-----" << endl;
 		cout << "mkdir timedrun fake" << endl;
 		cout << endl;
 	}
 	initialize_hcWorker();
-	if(global_myrank() == 0) {
+	if (global_myrank() == 0) {
 		cout << endl;
 		cout << "-----" << endl;
 	}
