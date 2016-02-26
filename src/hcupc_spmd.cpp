@@ -137,13 +137,10 @@ int barrier() {
  * This is adapted from:
  * Olivier, S., Prins, J.: Scalable dynamic load balancing using upc. In: ICPP. pp.123�131 (2008)
  */
-upcxx::shared_var<int> *cb_cancel;
-upcxx::shared_var<int> *cb_count;
-upcxx::shared_var<int> *cb_done;
-upcxx::shared_lock *cb_lock = new upcxx::shared_lock();
-bool workAvailInit = false;
-#define CB_LOCK		cb_lock->lock()
-#define CB_UNLOCK	cb_lock->unlock()
+static upcxx::shared_var<unsigned int> cb_count;
+static upcxx::shared_lock cb_lock;
+#define CB_LOCK		cb_lock.lock()
+#define CB_UNLOCK	cb_lock.unlock()
 #define NO_TERM   0
 #define TERM      1
 
@@ -157,12 +154,10 @@ inline bool initiate_global_steal() {
 /*
  * termination detection helper function
  */
-void cb_init() {
-	CB_LOCK;
-	cb_count = new upcxx::shared_var<int>(0);
-	cb_cancel = new upcxx::shared_var<int>(0);
-	cb_done = new upcxx::shared_var<int>(0);
-	CB_UNLOCK;
+static void cb_init() {
+	// CB_LOCK;
+	cb_count = 0;
+	// CB_UNLOCK;
 #ifdef DIST_WS
 	hclib::registerHCUPC_callback(&idle_workers);
 	idle_workers_threshold = hc_workers > 12 ? 2 : 0;	// heuristic for 24 core edison node only !!!
@@ -174,9 +169,9 @@ void cb_init() {
  */
 inline int cbarrier_inc() {
 	CB_LOCK;
-	*cb_count = *cb_count + 1;
+	cb_count = cb_count + 1;
 	CB_UNLOCK;
-	if (*cb_count == upcxx::global_ranks()) {
+	if (cb_count == upcxx::global_ranks()) {
 		return TERM;
 	}
 	else {
@@ -190,16 +185,16 @@ inline int cbarrier_inc() {
 inline int cbarrier_dec() {
 	int status = TERM;
 	CB_LOCK;
-	if (*cb_count < upcxx::global_ranks()) {
+	if (cb_count < upcxx::global_ranks()) {
 		status = NO_TERM;
-		*cb_count = *cb_count - 1;
+		cb_count = cb_count - 1;
 	}
 	CB_UNLOCK;
 	return status;
 }
 
 inline int cbarrier_test() {
-	return  (*cb_count == upcxx::global_ranks())? TERM : NO_TERM;
+	return  (cb_count == upcxx::global_ranks())? TERM : NO_TERM;
 }
 
 /*
@@ -415,7 +410,7 @@ void finish_spmd(std::function<void()> lambda) {
     // launch async tasks in immediate scopr of the finish_spmd in user program
     lambda();
 
-    if(comm_worker) {
+    if (comm_worker) {
         /*
          * The termiantion detection is the job of communication worker.
          * This is also treated as an async task and hence we wrap the

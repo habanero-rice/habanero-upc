@@ -40,6 +40,11 @@ int main(int argc, char **argv) {
       hupcpp::barrier();
       // log("after barrier");
 
+      // upcxx::shared_lock *cb_lock = new upcxx::shared_lock();
+      // cb_lock->lock();
+      // upcxx::shared_var<unsigned int> *tmp = new upcxx::shared_var<unsigned int>(0);
+      // cb_lock->unlock();
+
       hupcpp::finish_spmd([=]() {
           log("inside finish_spmd");
       /*
@@ -53,6 +58,7 @@ int main(int argc, char **argv) {
       */
       });
       log("ending");
+      // upcxx::finalize();
   });
   return 0;
 }
