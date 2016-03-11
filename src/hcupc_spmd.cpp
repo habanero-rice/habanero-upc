@@ -53,13 +53,13 @@ extern void (*hclib_distributed_future_register_callback)(
 void launch(int *argc, char ***argv, std::function<void()> lambda) {
     hclib_distributed_future_register_callback = dpromise_register_callback;
 
-    // hclib::launch(argc, *argv, [=]() {
         upcxx::init(argc, argv);
+     hclib::launch(argc, *argv, [=]() {
         hupcpp::showStatsHeader();
         lambda();
         hupcpp::showStatsFooter();
+     });
         upcxx::finalize();
-    // });
 }
 
 void initialize_hcWorker() {

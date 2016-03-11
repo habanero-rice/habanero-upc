@@ -460,7 +460,7 @@ void showStatsHeader() {
 		cout << "mkdir timedrun fake" << endl;
 		cout << endl;
 	}
-	// initialize_hcWorker();
+	 initialize_hcWorker();
 	if(global_myrank() == 0) {
 		cout << endl;
 		cout << "-----" << endl;
