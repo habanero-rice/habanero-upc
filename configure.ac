@@ -16,9 +16,22 @@ AC_COPYRIGHT([todo_copyright_info])
 # configure script revision
 AC_REVISION([$Revision: 0.1 $])
 
-AC_PROG_CXX
-AC_PROG_LIBTOOL
-AC_LANG(C++)
+
+### BUG FIX ###
+# For shared object's memory address, UPC++ assumes these objects 
+# are aligned on different ranks.
+# However, in dynamically loaded objects the loader may put the UPC++ 
+# objects in different memory location on different process.
+# This is not desired and will lead to segfault.  
+# Hence, to resolve statically linked libraries are only to be created
+# i.e., -fPIC should never be used. The following fix ensures this.
+##############
+#AC_PROG_CXX
+#AC_PROG_LIBTOOL
+#AC_LANG(C++)
+LT_INIT([disable-shared])
+dnl LT_INIT()
+LT_LANG([C++])
 
 ### ENABLE DISTRIBUTED WORK_STEALING SUPPORT
 AC_ARG_ENABLE(distWS,

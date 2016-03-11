@@ -309,16 +309,16 @@ void initialize_distws_setOfThieves() {
 
 	workAvail.init(upcxx::global_ranks());
 	workAvailLock.init(upcxx::global_ranks());
-	new (workAvailLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock();
+	new (workAvailLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
 	waitForTaskFromVictim.init(upcxx::global_ranks());
 
 	asyncsInFlight.init(upcxx::global_ranks());
 	asyncsInFlightCountLock.init(upcxx::global_ranks());
-	new (asyncsInFlightCountLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock();
+	new (asyncsInFlightCountLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
 
 	req_thread.init(upcxx::global_ranks());
 	reqLock.init(upcxx::global_ranks());
-	new (reqLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock();
+	new (reqLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
 
 	workAvail[upcxx::global_myrank()] = NOT_WORKING;
 	req_thread[upcxx::global_myrank()] = REQ_UNAVAILABLE;
