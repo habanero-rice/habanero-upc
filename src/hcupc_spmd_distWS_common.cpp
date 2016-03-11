@@ -342,16 +342,16 @@ void initialize_distws_setOfThieves() {
 
 	workAvail.init(THREADS);
 	workAvailLock.init(THREADS);
-	new (workAvailLock[MYTHREAD].raw_ptr()) upcxx::shared_lock();
+	new (workAvailLock[MYTHREAD].raw_ptr()) upcxx::shared_lock(MYTHREAD);
 	waitForTaskFromVictim.init(THREADS);
 
 	asyncsInFlight.init(THREADS);
 	asyncsInFlightCountLock.init(THREADS);
-	new (asyncsInFlightCountLock[MYTHREAD].raw_ptr()) upcxx::shared_lock();
+	new (asyncsInFlightCountLock[MYTHREAD].raw_ptr()) upcxx::shared_lock(MYTHREAD);
 
 	req_thread.init(THREADS);
 	reqLock.init(THREADS);
-	new (reqLock[MYTHREAD].raw_ptr()) upcxx::shared_lock();
+	new (reqLock[MYTHREAD].raw_ptr()) upcxx::shared_lock(MYTHREAD);
 
 	workAvail[MYTHREAD] = NOT_WORKING;
 	req_thread[MYTHREAD] = REQ_UNAVAILABLE;

@@ -4,8 +4,8 @@
 #include "hcupc_spmd.h"
 
 #define LONG long
-#define SIZE 18
-static int threshold = 7;
+#define SIZE 11
+static int threshold = 4;
 
 LONG solutions[20] =
 {
