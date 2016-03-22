@@ -33,26 +33,31 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Parallel gasnet\n");
 #else
 #endif
-  hupcpp::launch(&argc, &argv, [=] {
-      log("beginning");
-      // auto f = [](){ int r; fib(20, &r); std::cout << upcxx::global_myrank() << ":" << hupcpp::get_hc_wid() << "--> Fib = " << r << std::endl;};
-      // log("beginning");
-      hupcpp::barrier();
-      log("after barrier");
+    hupcpp::launch(&argc, &argv, [=] {
+        log("beginning");
+        auto f = [] {
+            int r;
+            fib(20, &r);
+            std::cout << upcxx::global_myrank() << ":" << hupcpp::get_hc_wid() << "--> Fib = " << r << std::endl;
+        };
 
-      hupcpp::finish_spmd([=]() {
-          log("inside finish_spmd");
-      /*
-        for(int i=0; i<upcxx::global_ranks(); i++) {
-          if(i != upcxx::global_myrank()) {
-            hupcpp::asyncAt(i,[=](){
-            f();
+        hupcpp::barrier();
+        log("after barrier");
+
+        hupcpp::finish_spmd([=]() {
+            log("inside finish_spmd");
+
+            // for (int i = 0; i < upcxx::global_ranks(); i++) {
+            //     if (i != upcxx::global_myrank()) {
+            //         hupcpp::asyncAt(i,[=](){
+            //             f();
+            //         });
+            //     }
+            // }
         });
-          }
-        }
-      */
-      });
-      log("ending");
-  });
-  return 0;
+
+        log("ending");
+    });
+
+    return 0;
 }

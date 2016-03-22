@@ -245,7 +245,7 @@ inline void pop_source_place_of_remoteTask(int* victim, int* tasks) {
  * at source place.
  */
 void decrement_tasks_in_flight_count() {
-	while(tasks_received > 0) {
+	while (tasks_received > 0) {
 		int victim, tasks;
 		pop_source_place_of_remoteTask(&victim, &tasks);
 		if(tasks > 0) {
@@ -260,14 +260,13 @@ void decrement_tasks_in_flight_count() {
 }
 
 bool received_tasks_from_victim() {
-	return tasks_received>0;
+	return tasks_received > 0;
 }
 
 /*
  * Distributed runtime initialization.
  */
 void initialize_distws_set_of_thieves() {
-    fprintf(stderr, "initialize_distws_set_of_thieves from pthread %p\n", pthread_self());
 	if (getenv("HCLIB_STEAL_N") != NULL) {
 		total_tasks_stolen_in_one_shot = std::stod(getenv("HCLIB_STEAL_N"));
 		HASSERT(total_tasks_stolen_in_one_shot > 0);
@@ -395,7 +394,7 @@ void launch_upcxx_async(T* lambda, int dest) {
  * a pending remote steal request and send asyncAny using upcxx::async.
  * At the end it will publish its local load.
  */
-bool serve_pending_distSteal_request() {
+bool serve_pending_dist_steal_request() {
 	// if im here then means I have tasks available
 	out_of_work = false;
 	while(!idle_workers && thieves_waiting) {
@@ -448,7 +447,7 @@ bool serve_pending_distSteal_request() {
 	return true;
 }
 
-bool serve_pending_distSteal_request_baseline() {
+bool serve_pending_dist_steal_request_baseline() {
 	// if im here then means I have tasks available
 
 	if(req_thread[upcxx::global_myrank()] == REQ_UNAVAILABLE) {

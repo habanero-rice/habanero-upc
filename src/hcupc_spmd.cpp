@@ -57,7 +57,6 @@ void launch(int *argc, char ***argv, std::function<void()> lambda) {
         hclib::finish([=] {
             hclib::async_comm([=] {
                 upcxx::init(argc, argv);
-                fprintf(stderr, "Initializing %d upcxx %p\n", upcxx::global_myrank(), pthread_self());
             });
         });
 
@@ -71,7 +70,6 @@ void launch(int *argc, char ***argv, std::function<void()> lambda) {
 
         hclib::finish([=] {
             hclib::async_comm([=] {
-                fprintf(stderr, "Finalizing %d %p\n", upcxx::global_myrank(), pthread_self());
                 upcxx::finalize();
             });
         });
@@ -116,8 +114,7 @@ upcxx::event* get_upcxx_event() {
 	event_mutex.lock();
 	if(!event_list_head) {
 		event_list_head = event_list_curr = el;
-	}
-	else {
+	} else {
 		event_list_curr->next = el;
 		event_list_curr = el;
 	}
@@ -173,7 +170,6 @@ inline bool initiate_global_steal() {
  */
 static void cb_init() {
     cb_count.init(1);
-    // cb_count = 0;
 #ifdef DIST_WS
 	hclib::registerHCUPC_callback(&idle_workers);
 	idle_workers_threshold = hc_workers > 12 ? 2 : 0;	// heuristic for 24 core edison node only !!!
@@ -233,8 +229,8 @@ inline void pop_execute_comm_task() {
 	while (success) {
 		comm_async_task task;
 		success = comm_task_pop(&task);
-		if(success) {
-			if(task.involve_communication) {
+		if (success) {
+			if (task.involve_communication) {
 				/*
 				 * By default all communication worker tasks involves communication.
 				 * There are some special cases where we want some task to be executed
@@ -277,7 +273,7 @@ void hclib_finish_barrier_distWS() {
 
 		if (!initiate_global_steal()) {
             // 1. If i have extra tasks then I should feed others
-			serve_pending_distSteal_request();
+			serve_pending_dist_steal_request();
 		} else {
             // 2. If my workers are asking global steals then I should try dist ws
 			bool success = search_tasks_globally();
@@ -295,8 +291,7 @@ void hclib_finish_barrier_distWS() {
 				if (isTrue) {
 					status = NO_TERM;
 					break;
-				}
-				else {
+				} else {
 					upcxx::advance();	// only when this place is sure all other place are idle
 				}
 				status = cbarrier_test();
@@ -323,11 +318,9 @@ void hclib_finish_barrier_baseline_distWS() {
 
 		// 1. If i have extra tasks then I should feed others
 		if(!initiate_global_steal()) {
-			serve_pending_distSteal_request_baseline();
-		}
-
-		// 2. If my workers are asking global steals then I should try dist ws
-		else {
+			serve_pending_dist_steal_request_baseline();
+		} else {
+            // 2. If my workers are asking global steals then I should try dist ws
 			bool success = search_tasks_globally_baseline();
 			if(success) tryTermination = false;
 		}
@@ -341,8 +334,7 @@ void hclib_finish_barrier_baseline_distWS() {
 				if (isTrue) {
 					status = NO_TERM;
 					break;
-				}
-				else {
+				} else {
 					upcxx::advance();	// only when this place is sure all other place are idle
 				}
 				status = cbarrier_test();
@@ -358,8 +350,7 @@ void hclib_finish_barrier_baseline_distWS() {
 void hclib_finish_barrier() {
 	if(baseline_distWS) {
 		hclib_finish_barrier_baseline_distWS();
-	}
-	else {
+	} else {
 		hclib_finish_barrier_distWS();
 	}
 }
@@ -373,7 +364,6 @@ void hclib_finish_barrier() {
 	const bool singlePlace = upcxx::global_ranks() == 1;
 
 	while (status != TERM) {
-        fprintf(stderr, "WAITING %d %p\n", upcxx::global_myrank(), pthread_self());
 		pop_execute_comm_task();
 
 		publish_local_load_info();
@@ -393,15 +383,13 @@ void hclib_finish_barrier() {
 				if (isTrue) {
 					status = NO_TERM;
 					break;
-				}
-				else {
+				} else {
 					upcxx::advance();	// only when this place is sure all other place are idle
 				}
 				status = cbarrier_test();
 			}
 		}
 	}
-    fprintf(stderr, "DONE WAITING\n");
 
 	HASSERT(total_pending_local_asyncs() == 0);
 
@@ -446,16 +434,13 @@ void finish_spmd(std::function<void()> lambda) {
      * pops the tasks as necessary.
      */
     async_comm([=] {
-        fprintf(stderr, "hclib_finish_barrier %d %p\n", upcxx::global_myrank(), pthread_self());
         hclib_finish_barrier();
     });
 
     /*
      * this finish will end only if all the local and remote tasks terminates
      */
-    fprintf(stderr, "Before final end finish\n");
     hclib::end_finish();
-    fprintf(stderr, "After final end finish\n");
     free_upcxx_event_list();
     end_finish_spmd_timer();
 }
