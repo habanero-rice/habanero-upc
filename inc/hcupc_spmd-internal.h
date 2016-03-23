@@ -54,11 +54,11 @@ namespace hupcpp {
 
 typedef unsigned long long counter_t;
 
-void initialize_distws_setOfThieves();
-int detectWork();
-int total_asyncs_inFlight();
-bool serve_pending_distSteal_request();
-bool serve_pending_distSteal_request_baseline();
+void initialize_distws_set_of_thieves();
+int detect_work();
+int total_asyncs_in_flight();
+bool serve_pending_dist_steal_request();
+bool serve_pending_dist_steal_request_baseline();
 bool search_tasks_globally();
 bool search_tasks_globally_baseline();
 void decrement_tasks_in_flight_count();

@@ -87,7 +87,7 @@ namespace hupcpp {
 
 extern volatile int idle_workers;	// counts computation workers only
 
-double totalTasksStolenInOneShot = -1; // may be fraction as well (getenv)
+double total_tasks_stolen_in_one_shot = -1; // may be fraction as well (getenv)
 
 static int* contacted_victims;
 static int* queued_thieves;
@@ -245,7 +245,7 @@ inline void pop_source_place_of_remoteTask(int* victim, int* tasks) {
  * at source place.
  */
 void decrement_tasks_in_flight_count() {
-	while(tasks_received > 0) {
+	while (tasks_received > 0) {
 		int victim, tasks;
 		pop_source_place_of_remoteTask(&victim, &tasks);
 		if(tasks > 0) {
@@ -260,27 +260,27 @@ void decrement_tasks_in_flight_count() {
 }
 
 bool received_tasks_from_victim() {
-	return tasks_received>0;
+	return tasks_received > 0;
 }
 
 /*
  * Distributed runtime initialization.
  */
-void initialize_distws_setOfThieves() {
-	if(getenv("HCLIB_STEAL_N") != NULL) {
-		totalTasksStolenInOneShot = std::stod(getenv("HCLIB_STEAL_N"));
-		HASSERT(totalTasksStolenInOneShot > 0);
-		if(totalTasksStolenInOneShot>1) {
-			HASSERT((totalTasksStolenInOneShot-(int)totalTasksStolenInOneShot) == 0);       // do not want something like 1.5
+void initialize_distws_set_of_thieves() {
+	if (getenv("HCLIB_STEAL_N") != NULL) {
+		total_tasks_stolen_in_one_shot = std::stod(getenv("HCLIB_STEAL_N"));
+		HASSERT(total_tasks_stolen_in_one_shot > 0);
+		if (total_tasks_stolen_in_one_shot > 1) {
+			HASSERT((total_tasks_stolen_in_one_shot -
+                        (int)total_tasks_stolen_in_one_shot) == 0); // do not want something like 1.5
 		}
-	}
-	else {
-		totalTasksStolenInOneShot = 1;
+	} else {
+		total_tasks_stolen_in_one_shot = 1;
 	}
 
 	task_transfer_threshold = 2 * numWorkers();	// heuristics
 
-	if(upcxx::global_myrank() == 0) {
+	if (upcxx::global_myrank() == 0) {
 #ifdef DIST_WS
 		cout << "---------DIST_WS_RUNTIME_INFO-----------" << endl;
 		if(getenv("HCLIB_DIST_WS_BASELINE")) {
@@ -289,17 +289,18 @@ void initialize_distws_setOfThieves() {
 		else {
 			printf(">>> HCLIB_DIST_WS_BASELINE\t\t= false\n");
 		}
-		if(totalTasksStolenInOneShot < 1) {
+		if(total_tasks_stolen_in_one_shot < 1) {
 			printf("WARNING (HCLIB_STEAL_N): N should always be positive integer, setting it as 1\n");
-			totalTasksStolenInOneShot = 1;
+			total_tasks_stolen_in_one_shot = 1;
 		}
-		printf(">>> HCLIB_STEAL_N\t\t= %f\n",totalTasksStolenInOneShot);
+		printf(">>> HCLIB_STEAL_N\t\t= %f\n",total_tasks_stolen_in_one_shot);
 		printf(">>> %s\n",vsdescript());
 		cout << "----------------------------------------" << endl;
 #endif
 		hclib::display_runtime();
 	}
-	assert(totalTasksStolenInOneShot <= 5);
+    // TODO: is there a reason for this? should this be a performance warning rather than an assert?
+	assert(total_tasks_stolen_in_one_shot <= 5);
 	stats_initTimelineEvents();
 #ifdef DIST_WS
 	// initialize random victim selection routines
@@ -338,14 +339,16 @@ void initialize_distws_setOfThieves() {
 /*
  * true if neighboring thread to the right is working
  */
-int detectWork() {
+int detect_work() {
 	const int neighbor = (upcxx::global_myrank() + 1) % upcxx::global_ranks();
 	return (NOT_WORKING != workAvail[neighbor]);
 }
 
-int total_asyncs_inFlight() {
+int total_asyncs_in_flight() {
 	int pending_asyncs = 0;
-	for(int i=0; i<upcxx::global_ranks(); i++) pending_asyncs += asyncsInFlight[i];
+	for (int i = 0; i < upcxx::global_ranks(); i++) {
+        pending_asyncs += asyncsInFlight[i];
+    }
 	return pending_asyncs;
 }
 
@@ -356,9 +359,9 @@ int total_asyncs_inFlight() {
 void publish_local_load_info() {
 #ifdef DIST_WS
 	const int total_aany = hclib::totalAsyncAnyAvailable();
-	workAvail[upcxx::global_myrank()] = (total_aany>0) ? total_aany : totalPendingLocalAsyncs();
+	workAvail[upcxx::global_myrank()] = (total_aany>0) ? total_aany : total_pending_local_asyncs();
 #else
-	workAvail[upcxx::global_myrank()] = totalPendingLocalAsyncs();
+	workAvail[upcxx::global_myrank()] = total_pending_local_asyncs();
 #endif
 }
 
@@ -391,7 +394,7 @@ void launch_upcxx_async(T* lambda, int dest) {
  * a pending remote steal request and send asyncAny using upcxx::async.
  * At the end it will publish its local load.
  */
-bool serve_pending_distSteal_request() {
+bool serve_pending_dist_steal_request() {
 	// if im here then means I have tasks available
 	out_of_work = false;
 	while(!idle_workers && thieves_waiting) {
@@ -399,7 +402,7 @@ bool serve_pending_distSteal_request() {
 		int i=0;
 		hclib::remoteAsyncAny_task tasks[5];
 
-		for( ; i<totalTasksStolenInOneShot; i++) {
+		for( ; i<total_tasks_stolen_in_one_shot; i++) {
 			// Steal task from computation workers
 			if(i>0 && idle_workers) break;
 			bool success = hclib::steal_fromComputeWorkers_forDistWS(&tasks[i]);
@@ -444,7 +447,7 @@ bool serve_pending_distSteal_request() {
 	return true;
 }
 
-bool serve_pending_distSteal_request_baseline() {
+bool serve_pending_dist_steal_request_baseline() {
 	// if im here then means I have tasks available
 
 	if(req_thread[upcxx::global_myrank()] == REQ_UNAVAILABLE) {
@@ -465,7 +468,7 @@ bool serve_pending_distSteal_request_baseline() {
 		int i=0;
 		hclib::remoteAsyncAny_task tasks[5];
 
-		for( ; i<totalTasksStolenInOneShot; i++) {
+		for( ; i<total_tasks_stolen_in_one_shot; i++) {
 			if(i>0 && idle_workers) break;
 			// Steal task from computation workers
 			bool success = hclib::steal_fromComputeWorkers_forDistWS(&tasks[i]);

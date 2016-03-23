@@ -33,7 +33,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *      Author: Vivek Kumar (vivekk@rice.edu)
  */
 
+#include <upcxx.h>
+
+#ifndef HCUPC_SPMD_COMMON_METHODS
+#define HCUPC_SPMD_COMMON_METHODS
+
 namespace hupcpp {
+
+typedef	hclib::promise_t  promise_t;
+typedef hclib::future_t future_t;
+typedef	hclib::triggered_task_t  triggered_task_t;
 
 void finish_spmd(std::function<void()> lambda);
 int barrier();
@@ -46,3 +55,4 @@ void showStatsHeader();
 void showStatsFooter();
 void dpromise_register_callback(promise_t** promise_list);
 }
+#endif
