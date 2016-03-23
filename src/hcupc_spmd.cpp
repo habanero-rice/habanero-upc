@@ -39,6 +39,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "hcupc_spmd-atomics.h"
 #include  <mutex>
 
+extern "C" {
+extern void hclib_init();
+extern void hclib_finalize();
+}
+
 namespace hupcpp {
 
 static int hc_workers;
@@ -54,24 +59,16 @@ void launch(int *argc, char ***argv, std::function<void()> lambda) {
     hclib_distributed_future_register_callback = dpromise_register_callback;
 
     upcxx::init(argc, argv);
-     hclib::launch(argc, *argv, [=]() {
-        hupcpp::showStatsHeader();
-        hclib::finish([=] {
-            hclib::async([=] {
-                lambda();
-            });
-        });
-        hupcpp::showStatsFooter();
-     });
-     upcxx::finalize();
+    hclib_init();
+    hupcpp::showStatsHeader();
+    lambda();
+    hupcpp::showStatsFooter();
+    hclib_finalize();
+    upcxx::finalize();
 }
 
 void initialize_hcWorker() {
-    finish([=] {
-        async_comm([=] {
-            initialize_distws_set_of_thieves();
-        });
-    });
+    initialize_distws_set_of_thieves();
 	hc_workers = numWorkers();
 	assert(hc_workers > 0);
 	semiConcDequeInit();
@@ -390,11 +387,7 @@ void hclib_finish_barrier() {
 
 void finish_spmd(std::function<void()> lambda) {
     HASSERT(hc_workers_initialized);
-    hclib::finish([=] {
-            async_comm([=] {
-                cb_init();
-            });
-        });
+    cb_init();
     start_finish_spmd_timer();
 
     hupcpp::barrier();
@@ -423,10 +416,8 @@ void finish_spmd(std::function<void()> lambda) {
      * bounded task to this deque. Inside the termiantion detection phase the comm worker
      * pops the tasks as necessary.
      */
-    async_comm([=] {
-        hclib_finish_barrier();
-    });
 
+    hclib_finish_barrier();
     /*
      * this finish will end only if all the local and remote tasks terminates
      */

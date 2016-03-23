@@ -26,7 +26,8 @@ void log(const char *msg) {
 
 int main(int argc, char **argv) {
   hupcpp::launch(&argc, &argv, [=] {
-      auto f = [](){ int r; fib(20, &r); std::cout << upcxx::global_myrank() << ":" << hupcpp::get_hc_wid() << "--> Fib = " << r << std::endl;};
+      const int curr_rank = upcxx::global_myrank();
+      auto f = [curr_rank](){ int r; fib(20, &r); std::cout << curr_rank << " -> " << upcxx::global_myrank() << ":" << hupcpp::get_hc_wid() << "--> Fib = " << r << std::endl;};
       hupcpp::finish_spmd([=]() {
         for(int i=0; i<upcxx::global_ranks(); i++) {
           if(i != upcxx::global_myrank()) {

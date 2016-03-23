@@ -33,13 +33,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *      Author: Vivek Kumar (vivekk@rice.edu)
  */
 
+#ifndef HCUPC_SPMD_RUNTIME_INTERFACE
+#define HCUPC_SPMD_RUNTIME_INTERFACE
+
 #include "hclib_cpp.h"
+#include "hcupc_spmd_common_methods.h"
 
 namespace hupcpp {
-
-typedef	hclib::promise_t  promise_t;
-typedef hclib::future_t future_t;
-typedef	hclib::triggered_task_t  triggered_task_t;
 
 inline promise_t* promise_create() {
     return new promise_t();
@@ -85,11 +85,6 @@ inline void finish(std::function<void()> lambda) {
 }
 
 template <typename T>
-inline void async_comm(T lambda) {
-	hclib::async_comm<T>(lambda);
-}
-
-template <typename T>
 inline void async(T lambda) {
 	hclib::async<T>(lambda);
 }
@@ -131,3 +126,4 @@ inline void forasync3D(loop_domain_t* loop, T lambda, int mode=FORASYNC_MODE_REC
 	hclib::forasync3D_internal<T>((hclib::loop_domain_t*)loop, lambda, mode, ANY_PLACE, NO_FUTURE);
 }
 }
+#endif

@@ -33,6 +33,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *      Author: Vivek Kumar (vivekk@rice.edu)
  */
 
+#include <upcxx.h>
+#include "hcupc_spmd_common_methods.h"
+#include "hcupc_spmd-runtime-interface.h"
+
+#ifndef HCUPC_SPMD_COMMTASK
+#define HCUPC_SPMD_COMMTASK
 
 namespace hupcpp {
 /*
@@ -108,6 +114,11 @@ inline void allocate_comm_task(T lambda) {
 	memcpy(task, &lambda, nbytes);
 	comm_async_task cb = comm_async_task(execute_comm_task<T>, task);
 	send_taskto_comm_worker(&cb);
+}
+
+template <typename T>
+inline void async_comm(T lambda) {
+    allocate_comm_task<T>(lambda);
 }
 
 /**
@@ -206,3 +217,4 @@ inline void asyncAny(T lambda) {
 }
 #endif
 }
+#endif
