@@ -1,0 +1,46 @@
+#PBS -q debug
+#PBS -l mppwidth=12288
+#PBS -l walltime=00:02:30
+#PBS -N pbbs
+#PBS -j oe
+#PBS -V
+
+cd $PBS_O_WORKDIR
+
+setenv GASNET_MAX_SEGSIZE '512MB'
+
+set ITER=8
+set EXE="./UTS"
+set UPC_TASK=512
+
+set LOGDIR="/global/u2/v/vivekk/edison/jan2016/logs"
+
+setenv HCPP_BIND_THREADS 1
+setenv HCPP_WORKERS 24
+setenv HCPP_STEAL_N 4
+
+setenv HCPP_DIST_WS_BASELINE 1
+set j=0
+while ( $j < ${ITER} )
+    # Baseline implementation of Dist_WS
+    set BENCH_OPTIONS="${T3WL}"
+    setenv HCPP_APP_EXEC_TIME 5.2
+    set LOGFILE="${LOGDIR}/UTST3WL.3096.1024.HCUPCRandTimelineFailSteals.i10c8.s4.places-${UPC_TASK}.log"
+    aprun -n ${UPC_TASK} -N 1 -d 24 ${EXE} ${BENCH_OPTIONS} -c 8 -i 10 >>& "${LOGFILE}.t1"
+    cat "${LOGFILE}.t1" | sed '/resources: utime/d' > "${LOGFILE}.t2"
+    cat "${LOGFILE}.t2" | sed '/WARNING: THREADS and MYTHREADS/d' > "${LOGFILE}.t3"
+    cat "${LOGFILE}.t3" | sed '/use upcxx::ranks/d' >> "${LOGFILE}"
+    rm "${LOGFILE}.t1" "${LOGFILE}.t2" "${LOGFILE}.t3"
+
+    set BENCH_OPTIONS="${T1WL}"
+    setenv HCPP_APP_EXEC_TIME 6.8
+    set LOGFILE="${LOGDIR}/UTST1WL.3096.1024.HCUPCRandTimelineFailSteals.i10c8.s4.places-${UPC_TASK}.log"
+    aprun -n ${UPC_TASK} -N 1 -d 24 ${EXE} ${BENCH_OPTIONS} -c 8 -i 10 >>& "${LOGFILE}.t1"
+    cat "${LOGFILE}.t1" | sed '/resources: utime/d' > "${LOGFILE}.t2"
+    cat "${LOGFILE}.t2" | sed '/WARNING: THREADS and MYTHREADS/d' > "${LOGFILE}.t3"
+    cat "${LOGFILE}.t3" | sed '/use upcxx::ranks/d' >> "${LOGFILE}"
+    rm "${LOGFILE}.t1" "${LOGFILE}.t2" "${LOGFILE}.t3"
+
+    set j=`expr ${j} + 1`
+end
+
