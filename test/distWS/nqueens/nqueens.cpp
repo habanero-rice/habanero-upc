@@ -131,7 +131,7 @@ int main(int argc, char* argv[])
 
 	LONG sum=0, result;
 	for(int i=0; i<hupcpp::numWorkers(); i++) sum += local_solutions[i];
-	upcxx::upcxx_reduce<LONG>(&sum, &result, 1, 0, UPCXX_SUM, UPCXX_LONG_LONG);
+	upcxx::reduce<LONG>(&sum, &result, 1, 0, UPCXX_SUM, UPCXX_LONG_LONG);
 
 	if(MYTHREAD == 0) {
 		long end = get_usecs();
