@@ -26,7 +26,7 @@ fi
 
 if [ $all -eq 1 ]; then
     echo "================== BUILDING HCPP ==================="
-    cd ${HCPP_BASE}
+    cd ${HCLIB_BASE}
     ./clobber.sh
     if [ -n "${HCUPC_FLAGS}" ]; then
 	echo "HCPP Build Flags: ${HCUPC_FLAGS} --enable-hupcpp"
