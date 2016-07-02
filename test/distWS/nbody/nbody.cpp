@@ -114,7 +114,7 @@ int main(int argc,char **argv) {
 		sum+=TOTAL_COUNTS[i];
 	}
 	counter_t total_sum;
-	upcxx::upcxx_reduce<counter_t>(&sum, &total_sum, 1, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
+	upcxx::reduce<counter_t>(&sum, &total_sum, 1, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
 	if(MYTHREAD == 0) {
 		const counter_t expected = NUMBODIES * MAX_STEPS;
 		const char* res = expected == total_sum ? "PASSED" : "FAILED";
