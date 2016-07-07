@@ -86,23 +86,41 @@ counter_t	total_received_stealRequests_when_idle=0;
 counter_t	total_cyclic_steals=0;
 counter_t	total_asyncany_rdma_probes=0;
 
+static long benchmark_start_time_stats = 0;
+static long finish_spmd_start = 0;
+static double finish_spmd_duration = 0;
+
 int		total_steal_1 = 0;
 int		total_steal_2 = 0;
 int		total_steal_3 = 0;
 int		total_steal_4 = 0;
 int		total_steal_4Plus = 0;
 
+long mysecond() {
+   struct timeval t;
+   gettimeofday(&t,NULL);
+   return t.tv_sec*1000000+t.tv_usec;
+}
+
+void start_finish_spmd_timer() {
+	finish_spmd_start = mysecond();
+}
+
+void end_finish_spmd_timer() {
+	finish_spmd_duration += (((double)(mysecond()-finish_spmd_start))/1000000) * 1000; //msec
+}
+
 /*
  * only for statistics
  */
 bool check_cyclicSteals(int v, int head, int tail, int* queued_thieves) {
 	while(head!=tail) {
-		if(v==queued_thieves[++head % THREADS]) {
-			total_cyclic_steals++;
-			return true; 
-		}
-	}
-	return false;
+                if(v==queued_thieves[++head % THREADS]) {
+                        total_cyclic_steals++;
+                        return true;
+                }
+        }
+        return false;
 }
 
 void check_if_out_of_work_stats(bool out_of_work) {
@@ -123,12 +141,6 @@ static counter_t fail_steals_timeline[MAX_TIMESTEPS];
 static long app_tStart = -1;
 static double app_tTotal = -1;
 static double app_tEnd = -1;
-
-long mysecond() {
-   struct timeval t;
-   gettimeofday(&t,NULL);
-   return t.tv_sec*1000000+t.tv_usec;
-}
 
 void stats_initTimelineEvents() {
 	if(app_total_time_estimate) {
@@ -178,7 +190,7 @@ static void showStats_failedSteals_timeline() {
 	if(app_total_time_estimate) {
 		static counter_t timeline[MAX_TIMESTEPS];
 		for(int i=0; i<MAX_TIMESTEPS; i++) timeline[i] = 0;
-		upcxx_reduce<counter_t>(fail_steals_timeline, timeline, MAX_TIMESTEPS, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
+		upcxx::reduce<counter_t>(fail_steals_timeline, timeline, MAX_TIMESTEPS, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
 		if(MYTHREAD == 0) {
 			printf("============================ FailStealTimeline Statistics Totals ============================\n");
 			counter_t sum_total_failed_steals = 0;
@@ -388,17 +400,17 @@ static void runtime_statistics(double duration) {
 
 		printf("============================ MMTk Statistics Totals ============================\n");
 #ifdef HC_COMM_WORKER_STATS
-		printf("time.mu\ttotalPushOutDeq\ttotalPushInDeq\ttotalStealsInDeq\ttotalTasksSendToRemote\ttotalSuccessDistSteals\ttotalFailedDistSteals\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes\ttWork\ttOverhead\ttSearch");
+		printf("time.mu\ttimeFinishSPMD\ttotalPushOutDeq\ttotalPushInDeq\ttotalStealsInDeq\ttotalTasksSendToRemote\ttotalSuccessDistSteals\ttotalFailedDistSteals\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes\ttWork\ttOverhead\ttSearch");
 		printf("\tS1\tS2\tS3\tS4\tS4Plus\n");
 
-		printf("%.3f\t%d\t%d\t%d\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%.3f\t%.3f\t%.5f",duration,t1,t2, t3, t4, t5, t6, t7, t7b, t7c, t13, t14, t15);
+		printf("%.3f\t%.3f\t%d\t%d\t%d\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%.3f\t%.3f\t%.5f",duration,finish_spmd_duration,t1,t2, t3, t4, t5, t6, t7, t7b, t7c, t13, t14, t15);
 		printf("\t%d\t%d\t%d\t%d\t%d\n",t8,t9,t10,t11,t12);
 
 #else
-		printf("time.mu\ttotalTasksSendToRemote\ttotalSuccessDistSteals\ttotalFailedDistSteal\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes");
+		printf("time.mu\ttimeFinishSPMD\ttotalTasksSendToRemote\ttotalSuccessDistSteals\ttotalFailedDistSteal\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes");
 		printf("\tS1\tS2\tS3\tS4\tS4Plus\n");
 
-		printf("%.3f\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu",duration,t4, t5, t6, t7, t7b, t7c);
+		printf("%.3f\t%.3f\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu",duration,finish_spmd_duration,t4, t5, t6, t7, t7b, t7c);
 		printf("\t%d\t%d\t%d\t%d\t%d\n",t8,t9,t10,t11,t12);
 
 #endif
@@ -426,12 +438,12 @@ static void runtime_statistics(double duration) {
 
 		printf("============================ MMTk Statistics Totals ============================\n");
 #ifdef HC_COMM_WORKER_STATS
-		printf("time.mu\ttotalPushOutDeq\ttotalPushInDeq\ttotalStealsInDeq\ttotalTasksSendToRemote\n");
-		printf("%.3f\t%d\t%d\t%d\t%llu\n",duration,t1,t2, t3, t4);
+		printf("time.mu\ttimeFinishSPMD\ttotalPushOutDeq\ttotalPushInDeq\ttotalStealsInDeq\ttotalTasksSendToRemote\n");
+		printf("%.3f\t%.3f\t%d\t%d\t%d\t%llu\n",duration,finish_spmd_duration,t1,t2, t3, t4);
 
 #else
-		printf("time.mu\ttotalTasksSendToRemote\n");
-		printf("%.3f\t%llu\n",duration,t4);
+		printf("time.mu\ttimeFinishSPMD\ttotalTasksSendToRemote\n");
+		printf("%.3f\t%.3f\t%llu\n",duration,finish_spmd_duration,t4);
 
 #endif
 		printf("Total time: %.3f ms\n",duration);
@@ -441,8 +453,6 @@ static void runtime_statistics(double duration) {
 #endif // end DIST_WS
 	hupcpp::barrier();
 }
-
-static long benchmark_start_time_stats = 0;
 
 void showStatsHeader() {
 	if(MYTHREAD == 0) {

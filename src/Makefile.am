@@ -2,7 +2,7 @@ include $(UPCPP_ROOT)/include/upcxx.mak
 
 SUBDIRS =
 
-HABANEROUPC_FLAGS = -I$(top_srcdir)/inc -I$(UPCPP_ROOT)/include -I$(HCLIB_ROOT)/include $(UPCXX_CXXFLAGS) -DHUPCPP -DHCPP_COMM_WORKER
+HABANEROUPC_FLAGS = -I$(top_srcdir)/inc -I$(UPCPP_ROOT)/include -I$(HCPP_ROOT)/include $(UPCXX_CXXFLAGS) -DHUPCPP -DHCPP_COMM_WORKER
 
 # Includes folder we need when compiling
 
@@ -31,7 +31,7 @@ AM_CXXFLAGS = $(HABANEROUPC_CXXFLAGS)
 lib_LTLIBRARIES = libhcupcpp.la
 
 # build the runtime library
-libhcupcpp_la_SOURCES = hcupc_spmd.cpp hcupc_spmd_distWS_common.cpp hcupc_spmd-semiConcDeque.cpp hcupc_spmd-distHPT.cpp hcupc_spmd_stats.cpp
+libhcupcpp_la_SOURCES = hcupc_spmd.cpp hcupc_spmd_distWS_common.cpp hcupc_spmd-semiConcDeque.cpp hcupc_spmd-distHPT.cpp hcupc_spmd_stats.cpp hcupc_spmd_dddf.cpp
 libhcupcpp_la_CXXFLAGS = $(AM_CXXFLAGS)
 
 MAINTAINERCLEANFILES = Makefile.in

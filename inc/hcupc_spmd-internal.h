@@ -82,4 +82,6 @@ void check_if_out_of_work_stats(bool out_of_work);
 void stats_initTimelineEvents();
 void success_steals_stats();
 void total_asyncany_rdma_probes_stats();
+void start_finish_spmd_timer();
+void end_finish_spmd_timer();
 }

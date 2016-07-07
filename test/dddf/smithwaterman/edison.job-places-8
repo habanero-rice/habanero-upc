@@ -1,0 +1,70 @@
+#PBS -q debug
+#PBS -l mppwidth=192
+#PBS -l walltime=00:00:30
+#PBS -N pbbs
+#PBS -j oe
+#PBS -V
+
+cd $PBS_O_WORKDIR
+
+setenv GASNET_MAX_SEGSIZE '512MB'
+
+set UPC_TASK=8
+setenv HCPP_WORKERS 24
+set SW_TYPE="huge"
+
+set LOGDIR="/global/u2/v/vivekk/dddf/logs"
+set LOGFILE="${LOGDIR}/sw.3096.1024.HCUPC.${SW_TYPE}.HC${HCPP_WORKERS}.places-${UPC_TASK}.log"
+
+set ITER=3
+setenv HCPP_BIND_THREADS 1
+
+#SW_TYPE=tiny
+#SW_TYPE=medium
+#SW_TYPE=large
+
+set EXE="./smith-waterman"
+
+set INPUT_FILE_1="./input/string1-${SW_TYPE}.txt"
+set INPUT_FILE_2="./input/string2-${SW_TYPE}.txt"
+set TILE_HEIGHT=1
+set INNER_TILE_WIDTH=1
+set INNER_TILE_HEIGHT=1
+set EXPECTED_RESULT=1
+
+if ( ${SW_TYPE} == "tiny" ) then
+        set TILE_WIDTH=4
+        set TILE_HEIGHT=4
+        set INNER_TILE_WIDTH=2
+        set INNER_TILE_HEIGHT=2
+        set EXPECTED_RESULT=12
+else if ( ${SW_TYPE} == "medium" ) then
+        set TILE_WIDTH=232
+        set TILE_HEIGHT=240
+        set INNER_TILE_WIDTH=29
+        set INNER_TILE_HEIGHT=30
+        set EXPECTED_RESULT=3640
+else if ( ${SW_TYPE} == "large" ) then
+        set TILE_WIDTH=2320
+        set TILE_HEIGHT=2400
+        set INNER_TILE_WIDTH=232
+        set INNER_TILE_HEIGHT=240
+        set EXPECTED_RESULT=36472
+else if ( ${SW_TYPE} == "huge" ) then
+        set TILE_WIDTH=11600
+        set TILE_HEIGHT=12000
+        set INNER_TILE_WIDTH=725
+        set INNER_TILE_HEIGHT=750
+        set EXPECTED_RESULT=364792
+endif
+
+set j=0
+while ( $j < ${ITER} )
+    aprun -n ${UPC_TASK} -N 1 -d 24 ${EXE} ${INPUT_FILE_1} ${INPUT_FILE_2} ${TILE_WIDTH} ${TILE_HEIGHT} ${INNER_TILE_WIDTH} ${INNER_TILE_HEIGHT} >>& "${LOGFILE}.t1"
+    cat "${LOGFILE}.t1" | sed '/resources: utime/d' > "${LOGFILE}.t2"
+    cat "${LOGFILE}.t2" | sed '/WARNING: THREADS and MYTHREADS/d' > "${LOGFILE}.t3"
+    cat "${LOGFILE}.t3" | sed '/use upcxx::ranks/d' >> "${LOGFILE}"
+    rm "${LOGFILE}.t1" "${LOGFILE}.t2" "${LOGFILE}.t3"
+
+    set j=`expr ${j} + 1`
+end

@@ -56,10 +56,6 @@ inline void * ddf_get(DDF_t * ddf) {
 	return hcpp::ddf_get(ddf);
 }
 
-inline void ddf_put(DDF_t * ddf, void * datum) {
-	hcpp::ddf_put(ddf, datum);
-}
-
 #include "hcupc_spmd-asyncAwait.h"
 
 inline int numWorkers() {
