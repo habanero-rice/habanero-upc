@@ -101,7 +101,7 @@ int main(int argc,char **argv) {
 	long start = get_usecs();
 	for(int time_steps=0;time_steps<MAX_STEPS;time_steps++) {
 		hupcpp::finish_spmd([=]() {
-			if(MYTHREAD ==0) {
+			if(upcxx::global_myrank() ==0) {
 				calculate_forces();
 			}
 		});
@@ -115,7 +115,7 @@ int main(int argc,char **argv) {
 	}
 	counter_t total_sum;
 	upcxx::reduce<counter_t>(&sum, &total_sum, 1, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
-	if(MYTHREAD == 0) {
+	if(upcxx::global_myrank() == 0) {
 		const counter_t expected = NUMBODIES * MAX_STEPS;
 		const char* res = expected == total_sum ? "PASSED" : "FAILED";
 		printf("Test %s, Time = %0.3f\n",res,dur);
@@ -129,7 +129,7 @@ int main(int argc,char **argv) {
 	upcxx::upcxx_reduce<float>(accy, accy_all, NUMBODIES, 0, UPCXX_SUM, UPCXX_FLOAT);
 	upcxx::upcxx_reduce<float>(accz, accz_all, NUMBODIES, 0, UPCXX_SUM, UPCXX_FLOAT);
 
-	if(MYTHREAD ==0) {
+	if(upcxx::global_myrank() ==0) {
 		printf("0: Computation done\n");
 		printf("Test Passed=%d\n",verify_result(argv[4],accx_all));
 	}
