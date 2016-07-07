@@ -70,7 +70,7 @@ inline void resetVictimArray() {
 #elif defined(__VS_RAND__)
 inline void vsinit()
 {
-        srand(MYTHREAD);
+        srand(upcxx::global_myrank());
 }
 
 inline char * vsdescript(void)
@@ -80,18 +80,19 @@ inline char * vsdescript(void)
 
 inline int selectvictim()
 {
+	const int ranks = upcxx::global_ranks()
+        const int me = upcxx::global_myrank();
 	// might attempting same victim multiple times
         int last = last_steal;
-        int rank = MYTHREAD;
         do {
-                last = rand()%THREADS;
-        } while(last == rank);
+                last = rand()%ranks;
+        } while(last == me);
         last_steal = last;
         return last;
 }
 
 inline void initialize_last_stolen() {
-        last_steal = MYTHREAD;
+        last_steal = upcxx::global_myrank();
 }
 
 inline void resetVictimArray() {
