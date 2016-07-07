@@ -133,8 +133,8 @@ inline void __intraPlace_asyncComm(T lambda) {
 template <typename T>
 inline void async_at_received(upcxx::global_ptr<T> remote_lambda) {
 	const size_t source = remote_lambda.where();
-	HASSERT(source != MYTHREAD);
-	upcxx::global_ptr<T> my_lambda = upcxx::allocate<T>(MYTHREAD, 1);
+	HASSERT(source != upcxx::global_myrank());
+	upcxx::global_ptr<T> my_lambda = upcxx::allocate<T>(upcxx::global_myrank(), 1);
 	upcxx::copy(remote_lambda, my_lambda, 1);
 
 	(*((T*)(my_lambda.raw_ptr())))();
@@ -147,14 +147,14 @@ inline void async_at_received(upcxx::global_ptr<T> remote_lambda) {
 // runs at source
 template <typename T>
 inline void asyncAt(int p, T lambda) {
-	HASSERT(p != MYTHREAD);
+	HASSERT(p != upcxx::global_myrank());
 	auto lambda2 = [=]() {
 		auto lambda_dest = [lambda]() {
 			hupcpp::async([lambda]() {
 				lambda();
 			});
 		};
-		upcxx::global_ptr<decltype(lambda_dest)> remote_lambda = upcxx::allocate<decltype(lambda_dest)>(MYTHREAD, 1);
+		upcxx::global_ptr<decltype(lambda_dest)> remote_lambda = upcxx::allocate<decltype(lambda_dest)>(upcxx::global_myrank(), 1);
 		memcpy(remote_lambda.raw_ptr(), &lambda_dest, sizeof(decltype(lambda_dest)));
 		upcxx::async(p, NULL)(async_at_received<decltype(lambda_dest)>, remote_lambda);
 	};
@@ -162,7 +162,7 @@ inline void asyncAt(int p, T lambda) {
 }
 
 inline void async_after_asyncCopy(void* ddf) {
-	queue_source_place_of_remoteTask(MYTHREAD);
+	queue_source_place_of_remoteTask(upcxx::global_myrank());
 	if(ddf) {
 		register_incoming_async_ddf(ddf);
 	}
@@ -174,7 +174,7 @@ inline void asyncCopy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> dst, size_t
 		upcxx::event* e = get_upcxx_event();
 		HASSERT(e != NULL);
 		upcxx::async_copy(src, dst, count, e);
-		upcxx::async_after(MYTHREAD, e, NULL)(async_after_asyncCopy, (void*)ddf);
+		upcxx::async_after(upcxx::global_myrank(), e, NULL)(async_after_asyncCopy, (void*)ddf);
 	};
 	allocate_comm_task<decltype(lambda)>(lambda);
 }

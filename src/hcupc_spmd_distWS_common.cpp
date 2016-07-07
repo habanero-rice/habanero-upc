@@ -120,33 +120,33 @@ upcxx::shared_array<int> asyncsInFlight;
 
 #define LOCK_WORK_AVAIL(i)				workAvailLock[i].get().lock()
 #define UNLOCK_WORK_AVAIL(i)			workAvailLock[i].get().unlock()
-#define LOCK_WORK_AVAIL_SELF			(&workAvailLock[MYTHREAD])->lock()
-#define UNLOCK_WORK_AVAIL_SELF			(&workAvailLock[MYTHREAD])->unlock()
+#define LOCK_WORK_AVAIL_SELF			(&workAvailLock[upcxx::global_myrank()])->lock()
+#define UNLOCK_WORK_AVAIL_SELF			(&workAvailLock[upcxx::global_myrank()])->unlock()
 
 #define LOCK_REQ(i)			 			reqLock[i].get().lock()
 #define UNLOCK_REQ(i)		 			reqLock[i].get().unlock()
-#define LOCK_REQ_SELF		 			(&reqLock[MYTHREAD])->lock()
-#define UNLOCK_REQ_SELF		 			(&reqLock[MYTHREAD])->unlock()
+#define LOCK_REQ_SELF		 			(&reqLock[upcxx::global_myrank()])->lock()
+#define UNLOCK_REQ_SELF		 			(&reqLock[upcxx::global_myrank()])->unlock()
 
-#define INCREMENT_TASK_IN_FLIGHT_SELF   {(&asyncsInFlightCountLock[MYTHREAD])->lock(); asyncsInFlight[MYTHREAD] = asyncsInFlight[MYTHREAD]+1;   (&asyncsInFlightCountLock[MYTHREAD])->unlock(); }
+#define INCREMENT_TASK_IN_FLIGHT_SELF   {(&asyncsInFlightCountLock[upcxx::global_myrank()])->lock(); asyncsInFlight[upcxx::global_myrank()] = asyncsInFlight[upcxx::global_myrank()]+1;   (&asyncsInFlightCountLock[upcxx::global_myrank()])->unlock(); }
 #define DECREMENT_TASK_IN_FLIGHT(i)     {asyncsInFlightCountLock[i].get().lock(); asyncsInFlight[i] = asyncsInFlight[i]-1;      asyncsInFlightCountLock[i].get().unlock(); }
 
 /*
  * Used only at the source
  */
 void increment_task_in_flight_self() {
-	(&asyncsInFlightCountLock[MYTHREAD])->lock();
-	asyncsInFlight[MYTHREAD] = asyncsInFlight[MYTHREAD]+1;
-	(&asyncsInFlightCountLock[MYTHREAD])->unlock();
+	(&asyncsInFlightCountLock[upcxx::global_myrank()])->lock();
+	asyncsInFlight[upcxx::global_myrank()] = asyncsInFlight[upcxx::global_myrank()]+1;
+	(&asyncsInFlightCountLock[upcxx::global_myrank()])->unlock();
 }
 
 /*
  * Used only at the source. This is used only when asyncCopy is invoked
  */
 inline void decrement_task_in_flight_self(int tasks) {
-	(&asyncsInFlightCountLock[MYTHREAD])->lock();
-	asyncsInFlight[MYTHREAD] = asyncsInFlight[MYTHREAD]-tasks;
-	(&asyncsInFlightCountLock[MYTHREAD])->unlock();
+	(&asyncsInFlightCountLock[upcxx::global_myrank()])->lock();
+	asyncsInFlight[upcxx::global_myrank()] = asyncsInFlight[upcxx::global_myrank()]-tasks;
+	(&asyncsInFlightCountLock[upcxx::global_myrank()])->unlock();
 }
 
 /*
@@ -165,10 +165,10 @@ inline void mark_victimContacted(int v) {
 	if (cyclic_steals_not_allowed && ret) {
 		// This victim is already queued as Thief with me.
 		// Remove this victim from queued_thief list
-		int queued_thieves_tmp[THREADS];
+		int queued_thieves_tmp[upcxx::global_ranks()];
 		int index=-1;
 		while(head!=tail) {
-			int t = queued_thieves[++head % THREADS];
+			int t = queued_thieves[++head % upcxx::global_ranks()];
            		if(v!=t) {
                         	queued_thieves_tmp[++index] = t;
             		}
@@ -176,10 +176,10 @@ inline void mark_victimContacted(int v) {
 		head=-1;
 		tail=index;
 #ifdef HCPP_DEBUG
-			cout <<MYTHREAD << ": Cyclic steals, queued_thieves -->" << v << " new head= "<< head << " tail = " << tail << endl;
+			cout <<upcxx::global_myrank() << ": Cyclic steals, queued_thieves -->" << v << " new head= "<< head << " tail = " << tail << endl;
 #endif
 		if(tail != -1) {
-			memcpy(queued_thieves, queued_thieves_tmp, sizeof(int)*THREADS);
+			memcpy(queued_thieves, queued_thieves_tmp, sizeof(int)*upcxx::global_ranks());
 		}
 		else thieves_waiting = false;
 	}
@@ -200,7 +200,7 @@ inline bool victim_already_contacted(int v) {
  * 		from whome they have received steal requests.
  */
 inline bool full_thief_queue() {
-	return ((tail - THREADS) == head);
+	return ((tail - upcxx::global_ranks()) == head);
 }
 
 inline int size_thief_queue() {
@@ -222,12 +222,12 @@ inline void queue_thief(int i) {
 	HASSERT(!full_thief_queue());
 	thieves_waiting = true;
 	check_if_out_of_work_stats(out_of_work);
-	queued_thieves[++tail % THREADS] = i;
+	queued_thieves[++tail % upcxx::global_ranks()] = i;
 	// Check if I owe task from this thief, i.e., if this
 	// thief is queued as one my victims
 	if(cyclic_steals_not_allowed && victim_already_contacted(i)) {
 #ifdef HCPP_DEBUG
-			cout <<MYTHREAD << ": Cyclic steals, unmark_victimContacted -->" << i << endl;
+			cout <<upcxx::global_myrank() << ": Cyclic steals, unmark_victimContacted -->" << i << endl;
 #endif
 		unmark_victimContacted(i);
 	}
@@ -238,8 +238,8 @@ inline int pop_thief() {
 		HASSERT(!thieves_waiting);
 		return -1;
 	}
-	const int p = queued_thieves[++head % THREADS];
-	HASSERT(p>=0 && p<THREADS);
+	const int p = queued_thieves[++head % upcxx::global_ranks()];
+	HASSERT(p>=0 && p<upcxx::global_ranks());
 	if(empty_thief_queue()) {
 		thieves_waiting=false;
 	}
@@ -259,12 +259,12 @@ void queue_source_place_of_remoteTask(int i) {
 }
 
 inline void pop_source_place_of_remoteTask(int* victim, int* tasks) {
-	HASSERT(head_rto < THREADS);
+	HASSERT(head_rto < upcxx::global_ranks());
 	const int index = head_rto++;
 	*victim = index;
 	*tasks = received_tasks_origin[index];
 	received_tasks_origin[index] = 0; // reset
-	if(head_rto == THREADS) {
+	if(head_rto == upcxx::global_ranks()) {
 		head_rto = 0; // reset
 	}
 	tasks_received -= *tasks;
@@ -279,7 +279,7 @@ void decrement_tasks_in_flight_count() {
 		int victim, tasks;
 		pop_source_place_of_remoteTask(&victim, &tasks);
 		if(tasks > 0) {
-			if(victim != MYTHREAD) {
+			if(victim != upcxx::global_myrank()) {
 				decrement_task_in_flight(victim, tasks);
 			}
 			else {
@@ -310,7 +310,7 @@ void initialize_distws_setOfThieves() {
 
 	task_transfer_threshold = 2 * numWorkers();	// heuristics
 
-	if(MYTHREAD == 0) {
+	if(upcxx::global_myrank() == 0) {
 #ifdef DIST_WS
 		cout << "---------DIST_WS_RUNTIME_INFO-----------" << endl;
 		if(getenv("HCPP_DIST_WS_BASELINE")) {
@@ -340,28 +340,28 @@ void initialize_distws_setOfThieves() {
 	vsinit();
 #endif
 
-	workAvail.init(THREADS);
-	workAvailLock.init(THREADS);
-	new (workAvailLock[MYTHREAD].raw_ptr()) upcxx::shared_lock(MYTHREAD);
-	waitForTaskFromVictim.init(THREADS);
+	workAvail.init(upcxx::global_ranks());
+	workAvailLock.init(upcxx::global_ranks());
+	new (workAvailLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
+	waitForTaskFromVictim.init(upcxx::global_ranks());
 
-	asyncsInFlight.init(THREADS);
-	asyncsInFlightCountLock.init(THREADS);
-	new (asyncsInFlightCountLock[MYTHREAD].raw_ptr()) upcxx::shared_lock(MYTHREAD);
+	asyncsInFlight.init(upcxx::global_ranks());
+	asyncsInFlightCountLock.init(upcxx::global_ranks());
+	new (asyncsInFlightCountLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
 
-	req_thread.init(THREADS);
-	reqLock.init(THREADS);
-	new (reqLock[MYTHREAD].raw_ptr()) upcxx::shared_lock(MYTHREAD);
+	req_thread.init(upcxx::global_ranks());
+	reqLock.init(upcxx::global_ranks());
+	new (reqLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
 
-	workAvail[MYTHREAD] = NOT_WORKING;
-	req_thread[MYTHREAD] = REQ_UNAVAILABLE;
-	asyncsInFlight[MYTHREAD] = 0;
-	waitForTaskFromVictim[MYTHREAD] = false;
+	workAvail[upcxx::global_myrank()] = NOT_WORKING;
+	req_thread[upcxx::global_myrank()] = REQ_UNAVAILABLE;
+	asyncsInFlight[upcxx::global_myrank()] = 0;
+	waitForTaskFromVictim[upcxx::global_myrank()] = false;
 
-	contacted_victims = new int[THREADS];
-	queued_thieves = new int[THREADS];
-	received_tasks_origin = new int[THREADS];
-	for(int i=0; i<THREADS; i++) {
+	contacted_victims = new int[upcxx::global_ranks()];
+	queued_thieves = new int[upcxx::global_ranks()];
+	received_tasks_origin = new int[upcxx::global_ranks()];
+	for(int i=0; i<upcxx::global_ranks(); i++) {
 		contacted_victims[i] = POPPED_ENTRY;
 		queued_thieves[i] = POPPED_ENTRY;
 		received_tasks_origin[i] = 0;
@@ -372,13 +372,13 @@ void initialize_distws_setOfThieves() {
  * true if neighboring thread to the right is working
  */
 int detectWork() {
-	const int neighbor = (MYTHREAD + 1) % THREADS;
+	const int neighbor = (upcxx::global_myrank() + 1) % upcxx::global_ranks();
 	return (NOT_WORKING != workAvail[neighbor]);
 }
 
 int total_asyncs_inFlight() {
 	int pending_asyncs = 0;
-	for(int i=0; i<THREADS; i++) pending_asyncs += asyncsInFlight[i];
+	for(int i=0; i<upcxx::global_ranks(); i++) pending_asyncs += asyncsInFlight[i];
 	return pending_asyncs;
 }
 
@@ -389,9 +389,9 @@ int total_asyncs_inFlight() {
 void publish_local_load_info() {
 #ifdef DIST_WS
 	const int total_aany = hcpp::totalAsyncAnyAvailable();
-	workAvail[MYTHREAD] = (total_aany>0) ? total_aany : totalPendingLocalAsyncs();
+	workAvail[upcxx::global_myrank()] = (total_aany>0) ? total_aany : totalPendingLocalAsyncs();
 #else
-	workAvail[MYTHREAD] = totalPendingLocalAsyncs();
+	workAvail[upcxx::global_myrank()] = totalPendingLocalAsyncs();
 #endif
 }
 
@@ -401,7 +401,7 @@ void publish_local_load_info() {
  */
 template <typename T>
 void asyncAny_destination(upcxx::global_ptr<T> remote_lambda) {
-	upcxx::global_ptr<T> my_lambda = upcxx::allocate<T>(MYTHREAD, 1);
+	upcxx::global_ptr<T> my_lambda = upcxx::allocate<T>(upcxx::global_myrank(), 1);
 	upcxx::copy(remote_lambda, my_lambda, 1);
 
 	(*((T*)(my_lambda.raw_ptr())))();
@@ -412,7 +412,7 @@ void asyncAny_destination(upcxx::global_ptr<T> remote_lambda) {
 
 template <typename T>
 void launch_upcxx_async(T* lambda, int dest) {
-	upcxx::global_ptr<T> remote_lambda = upcxx::allocate<T>(MYTHREAD, 1);
+	upcxx::global_ptr<T> remote_lambda = upcxx::allocate<T>(upcxx::global_myrank(), 1);
 	memcpy(remote_lambda.raw_ptr(), lambda, sizeof(T));
 	upcxx::async(dest,NULL)(asyncAny_destination<T>, remote_lambda);
 }
@@ -449,12 +449,12 @@ bool serve_pending_distSteal_request() {
 			HASSERT(thief >= 0);
 			// use upcxx::async to send task to requestor
 #ifdef HCPP_DEBUG
-			cout <<MYTHREAD << ": Sending " << i << " tasks to " << thief << endl;
+			cout <<upcxx::global_myrank() << ": Sending " << i << " tasks to " << thief << endl;
 #endif
 			success_steals_stats();
-			const int source = MYTHREAD;
+			const int source = upcxx::global_myrank();
 			auto lambda_for_thief = [tasks, i, source]() {
-				const int dest = MYTHREAD;
+				const int dest = upcxx::global_myrank();
 				assert(source != dest);
 				unwrap_n_asyncAny_tasks(tasks, i);
 				//decrement_task_in_flight(source);
@@ -480,20 +480,20 @@ bool serve_pending_distSteal_request() {
 bool serve_pending_distSteal_request_baseline() {
 	// if im here then means I have tasks available
 
-	if(req_thread[MYTHREAD] == REQ_UNAVAILABLE) {
+	if(req_thread[upcxx::global_myrank()] == REQ_UNAVAILABLE) {
 		// this will be true only in two conditions:
 		// 1. this thread was a thief in previous iteration
 		// 2. this thread just started with work
 		const int work = hcpp::totalAsyncAnyAvailable();
 		if(work) {
-			req_thread[MYTHREAD] = REQ_AVAILABLE;
-			workAvail[MYTHREAD] = work;
+			req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
+			workAvail[upcxx::global_myrank()] = work;
 			return true;
 		}
 		return false;
 	}
 
-	int requestor = req_thread[MYTHREAD];
+	int requestor = req_thread[upcxx::global_myrank()];
 	if (requestor >= 0) {
 		int i=0;
 		hcpp::remoteAsyncAny_task tasks[5];
@@ -513,12 +513,12 @@ bool serve_pending_distSteal_request_baseline() {
 
 			// use upcxx::async to send task to requestor
 #ifdef HCPP_DEBUG
-			cout <<MYTHREAD << ": Sending " << i << " tasks to " << requestor << endl;
+			cout <<upcxx::global_myrank() << ": Sending " << i << " tasks to " << requestor << endl;
 #endif
 			success_steals_stats();
-			const int source = MYTHREAD;
+			const int source = upcxx::global_myrank();
 			auto lambda_for_thief = [tasks, i, source]() {
-				const int dest = MYTHREAD;
+				const int dest = upcxx::global_myrank();
 				assert(source != dest);
 				unwrap_n_asyncAny_tasks(tasks, i);
 				DECREMENT_TASK_IN_FLIGHT(source);
@@ -527,7 +527,7 @@ bool serve_pending_distSteal_request_baseline() {
 			};
 
 			launch_upcxx_async<decltype(lambda_for_thief)>(&lambda_for_thief, requestor);
-			req_thread[MYTHREAD] = REQ_AVAILABLE;
+			req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
 			upcxx::advance();
 		}
 	}
@@ -540,18 +540,18 @@ bool serve_pending_distSteal_request_baseline() {
 
 inline void mark_myPlace_asIdle() {
 	out_of_work = true;
-	workAvail[MYTHREAD] = NOT_WORKING;
+	workAvail[upcxx::global_myrank()] = NOT_WORKING;
 }
 
 inline void mark_myPlace_asIdle_baseline() {
-	if(workAvail[MYTHREAD] == NOT_WORKING && req_thread[MYTHREAD] == REQ_UNAVAILABLE) {
+	if(workAvail[upcxx::global_myrank()] == NOT_WORKING && req_thread[upcxx::global_myrank()] == REQ_UNAVAILABLE) {
 		return;
 	}
 	else {
 		LOCK_REQ_SELF;
-		workAvail[MYTHREAD] = NOT_WORKING;
-		int pendingReq = req_thread[MYTHREAD];
-		req_thread[MYTHREAD] = REQ_UNAVAILABLE;
+		workAvail[upcxx::global_myrank()] = NOT_WORKING;
+		int pendingReq = req_thread[upcxx::global_myrank()];
+		req_thread[upcxx::global_myrank()] = REQ_UNAVAILABLE;
 		UNLOCK_REQ_SELF;
 
 		if(pendingReq >= 0) {
@@ -585,10 +585,10 @@ bool search_tasks_globally() {
 	// restart victim selection
 	resetVictimArray();
 
-	const int me = MYTHREAD;
+	const int me = upcxx::global_myrank();
 	int victims_contacted = 0;
 	/* check all other threads */
-	for (int i = 1; i < THREADS && !received_tasks_from_victim(); i++) {
+	for (int i = 1; i < upcxx::global_ranks() && !received_tasks_from_victim(); i++) {
 		const int v = selectvictim();
 		if(victim_already_contacted(v)) continue;
 
@@ -608,14 +608,14 @@ bool search_tasks_globally() {
 			launch_upcxx_async<decltype(lambda)>(&lambda, v);
 
 #ifdef HCPP_DEBUG
-			cout <<MYTHREAD << ": Sending steal request to " << v << endl;
+			cout <<upcxx::global_myrank() << ": Sending steal request to " << v << endl;
 #endif
 			victims_contacted++;
 
 			while(waiting_for_returnAsync) {
 				upcxx::advance();
 #ifdef HCPP_DEBUG
-				cout <<MYTHREAD << ": Waiting for return async"<< endl;
+				cout <<upcxx::global_myrank() << ": Waiting for return async"<< endl;
 #endif
 			}
 		}
@@ -635,7 +635,7 @@ inline int findwork_baseline() {
 		/* check all other threads */
 		resetVictimArray();
 
-		for (int i = 1; i < THREADS; i++) {
+		for (int i = 1; i < upcxx::global_ranks(); i++) {
 			int v = selectvictim();
 			int workProbe = workAvail[v];
 			total_asyncany_rdma_probes_stats();
@@ -648,20 +648,20 @@ inline int findwork_baseline() {
 				LOCK_REQ(v);
 				bool success = (req_thread[v] == REQ_AVAILABLE);
 				if (success) {
-					waitForTaskFromVictim[MYTHREAD] = true;	// no lock is required to modify this, but we always want to do this before marking our id at victim
-					req_thread[v] = MYTHREAD;
+					waitForTaskFromVictim[upcxx::global_myrank()] = true;	// no lock is required to modify this, but we always want to do this before marking our id at victim
+					req_thread[v] = upcxx::global_myrank();
 				}
 				UNLOCK_REQ(v);
 
 				if (success) {
 #ifdef HCPP_DEBUG
-					cout <<MYTHREAD << ": Receiving tasks from " << v << endl;
+					cout <<upcxx::global_myrank() << ": Receiving tasks from " << v << endl;
 #endif
 					return v;
 				}
 				else {
 #ifdef HCPP_DEBUG
-					cout <<MYTHREAD << ": Failed to steal from " << v << endl;
+					cout <<upcxx::global_myrank() << ": Failed to steal from " << v << endl;
 #endif
 					record_failedSteal_timeline();
 				}
@@ -677,7 +677,7 @@ inline int findwork_baseline() {
 inline bool steal_from_victim_baseline(int victim) {
 	// Poke upcxx to push/pull tasks from upcxx queue
 	bool success = false;
-	while(waitForTaskFromVictim[MYTHREAD]) {
+	while(waitForTaskFromVictim[upcxx::global_myrank()]) {
 		upcxx::advance();
 	}
 	return true;
@@ -694,8 +694,8 @@ bool search_tasks_globally_baseline() {
 			// once this function returns, then it means the work is received from victim
 			success = steal_from_victim_baseline(victim);
 			if(success) {
-				workAvail[MYTHREAD] = 0;
-				req_thread[MYTHREAD] = REQ_AVAILABLE;
+				workAvail[upcxx::global_myrank()] = 0;
+				req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
 				//success steal, increment the counter
 				break;	// start the fast path
 			}

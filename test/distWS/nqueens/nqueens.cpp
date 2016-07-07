@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
 	double dur = 0;
 	long start = get_usecs();
 	hupcpp::finish_spmd([=]() {
-		if(MYTHREAD == 0) {
+		if(upcxx::global_myrank() == 0) {
 			data_t data;
 			data.depth = 0;
 			nqueens_kernel(data);
@@ -133,7 +133,7 @@ int main(int argc, char* argv[])
 	for(int i=0; i<hupcpp::numWorkers(); i++) sum += local_solutions[i];
 	upcxx::reduce<LONG>(&sum, &result, 1, 0, UPCXX_SUM, UPCXX_LONG_LONG);
 
-	if(MYTHREAD == 0) {
+	if(upcxx::global_myrank() == 0) {
 		long end = get_usecs();
 		dur = ((double)(end-start))/1000000;
 		verify_queens(result);

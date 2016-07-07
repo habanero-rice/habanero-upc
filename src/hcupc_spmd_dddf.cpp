@@ -47,14 +47,14 @@ std::unordered_map<int, DDDF_t*> dddf_guid_map;
 // used only for DDDF related operations and hence not available to users
 template <typename T>
 inline void _asyncAfter(int p, upcxx::event *e, T lambda) {
-	assert(p != MYTHREAD);
+	assert(p != upcxx::global_myrank());
 	auto lambda2 = [=]() {
 		auto lambda_dest = [lambda]() {
 			hupcpp::async([lambda]() {
 				lambda();
 			});
 		};
-		upcxx::global_ptr<decltype(lambda_dest)> remote_lambda = upcxx::allocate<decltype(lambda_dest)>(MYTHREAD, 1);
+		upcxx::global_ptr<decltype(lambda_dest)> remote_lambda = upcxx::allocate<decltype(lambda_dest)>(upcxx::global_myrank(), 1);
 		memcpy(remote_lambda.raw_ptr(), &lambda_dest, sizeof(decltype(lambda_dest)));
 		upcxx::async_after(p, e, NULL)(async_at_received<decltype(lambda_dest)>, remote_lambda);
 	};
@@ -70,7 +70,7 @@ inline upcxx::event* _asyncCopy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> d
 	HASSERT(e != NULL);
 	auto lambda = [=]() {
 		upcxx::async_copy(src, dst, count, e);
-		upcxx::async_after(MYTHREAD, e, NULL)(async_after_asyncCopy, (void*)NULL);
+		upcxx::async_after(upcxx::global_myrank(), e, NULL)(async_after_asyncCopy, (void*)NULL);
 	};
 	allocate_comm_task<decltype(lambda)>(lambda);
 	return e;
@@ -87,11 +87,11 @@ DDF_t* __ddfHandle( int gid, int hid, size_t size) {
 	 */
 	HASSERT(get_hc_wid() == 0);
 	HASSERT(size > 0);
-	HASSERT(hid>=0 && hid<THREADS);
+	HASSERT(hid>=0 && hid<upcxx::global_ranks());
 
 	upcxx::shared_array<DDDF_t> *dddf_array = new upcxx::shared_array<DDDF_t>();
-	(*dddf_array).init(THREADS, 1);
-	DDDF_t *myindex_dddf_array = (DDDF_t *) &((*dddf_array)[MYTHREAD]);
+	(*dddf_array).init(upcxx::global_ranks(), 1);
+	DDDF_t *myindex_dddf_array = (DDDF_t *) &((*dddf_array)[upcxx::global_myrank()]);
 
 	// store the DDDF_t in hash-table with guid as hash-key
 	dddf_guid_map.insert({gid, myindex_dddf_array});
@@ -99,7 +99,7 @@ DDF_t* __ddfHandle( int gid, int hid, size_t size) {
 	// initialize the local DDF_t equivalent pointer for this DDDF_t
 	DDF_t* ddf = &(myindex_dddf_array->theDDF);
 	hcpp::ddf_create_preinit(ddf);	// does not allocate but only initializes
-	ddf->kind = (hid == MYTHREAD) ? DDF_KIND_DISTRIBUTED_OWNER : DDF_KIND_DISTRIBUTED_REMOTE;
+	ddf->kind = (hid == upcxx::global_myrank()) ? DDF_KIND_DISTRIBUTED_OWNER : DDF_KIND_DISTRIBUTED_REMOTE;
 
 	// initialize structure variables
 	myindex_dddf_array->global_id = gid;
@@ -110,7 +110,7 @@ DDF_t* __ddfHandle( int gid, int hid, size_t size) {
 
 	// allocate the datum in global address space
 	myindex_dddf_array->datum = new upcxx::shared_array<char>();
-	(*myindex_dddf_array->datum).init(THREADS*(myindex_dddf_array->count), myindex_dddf_array->count);	// block cyclic allocation of array
+	(*myindex_dddf_array->datum).init(upcxx::global_ranks()*(myindex_dddf_array->count), myindex_dddf_array->count);	// block cyclic allocation of array
 	const int kind = ddf->kind;
 	HASSERT(kind == DDF_KIND_DISTRIBUTED_OWNER || kind == DDF_KIND_DISTRIBUTED_REMOTE);
 	hupcpp::barrier();
@@ -131,7 +131,7 @@ inline void DDF_PUT_home(int guid, int source) {
 	// 2. copy the content from global address space to private memory
 	const int count_remote = remote_dddf_array->count;
 	char* data_remote = new char[count_remote];
-	const int remote_startIndex = MYTHREAD * count_remote;
+	const int remote_startIndex = upcxx::global_myrank() * count_remote;
 	std::memcpy(data_remote, (char*)(&((*remote_dddf_array->datum)[remote_startIndex])), sizeof(char)*count_remote);
 	// 3. Store which remote node gave me the put data. This is to ensure
 	// that I should cancel out all put_back on this same DDDF from the source node
@@ -149,14 +149,14 @@ inline void DDF_PUT_home(int guid, int source) {
  */
 inline void DDF_PUT_remote(DDDF_t* myindex_dddf_array, int dest) {
 	const int count = myindex_dddf_array->count;
-	const int my_startIndex = MYTHREAD * count;
+	const int my_startIndex = upcxx::global_myrank() * count;
 	const int dest_startIndex = dest * count;
 	const int guid = myindex_dddf_array->global_id;
 	// 3. Launch an asynchronous copy task to copy the datum to remote node
 	upcxx::global_ptr<char> src_start_address =  &((*myindex_dddf_array->datum)[my_startIndex]);
 	upcxx::global_ptr<char> dest_start_address = &((*myindex_dddf_array->datum)[dest_startIndex]);
 	upcxx::event *e = _asyncCopy(src_start_address, dest_start_address, count);
-	int me = MYTHREAD;
+	int me = upcxx::global_myrank();
 	// 4. launch an asyncAfter at dest node such that once this asyncCopy completes, it can copy
 	// the content of datum from its global address space to its private memory and perform a local ddf_put
 	_asyncAfter(dest, e, [me, guid]() {
@@ -171,9 +171,9 @@ inline void DDF_PUT_remote(DDDF_t* myindex_dddf_array, int dest) {
 inline void copy_datum_from_private_to_globalAddress(DDF_t* ddf, void* data) {
 	DDDF_t *myindex_dddf_array = (DDDF_t *) ddf;
 	assert(myindex_dddf_array->put_initiator_rank == -1);
-	myindex_dddf_array->put_initiator_rank = MYTHREAD;
+	myindex_dddf_array->put_initiator_rank = upcxx::global_myrank();
 	const int count = myindex_dddf_array->count;
-	const int my_startIndex = MYTHREAD * count;
+	const int my_startIndex = upcxx::global_myrank() * count;
 	std::memcpy((char*)(&((*myindex_dddf_array->datum)[my_startIndex])), data, sizeof(char)*count);
 	__sync_bool_compare_and_swap(&(myindex_dddf_array->putRequestedFromHome), false, true);	// mark put data is available
 }
@@ -255,7 +255,7 @@ int __ddfGetHome(DDF_t* ddf) {
 	case DDF_KIND_SHARED:
 	{
 		// intra-node DDF implementation
-		home = MYTHREAD;
+		home = upcxx::global_myrank();
 		break;
 	}
 	case DDF_KIND_DISTRIBUTED_OWNER:
@@ -334,7 +334,7 @@ void dddf_register_callback(DDF_t** ddf_list) {
 			myindex_dddf_array->putRequestedFromHome = true;
 			const int dddf_guid = myindex_dddf_array->global_id;
 			const int dest = myindex_dddf_array->home_rank;
-			const int me = MYTHREAD;
+			const int me = upcxx::global_myrank();
 			asyncAt(dest, [dddf_guid, me]() {
 				DDF_PUT_callback(me, dddf_guid);
 			});
