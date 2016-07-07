@@ -2,7 +2,7 @@ include $(UPCPP_ROOT)/include/upcxx.mak
 
 SUBDIRS =
 
-HABANEROUPC_FLAGS = -I$(top_srcdir)/inc -I$(UPCPP_ROOT)/include -I$(HCPP_ROOT)/include $(UPCXX_CXXFLAGS) -DHUPCPP -DHCPP_COMM_WORKER
+HABANEROUPC_FLAGS = -I$(top_srcdir)/inc -I$(UPCPP_ROOT)/include -I$(HCLIB_ROOT)/include $(UPCXX_CXXFLAGS) -DHUPCPP -DHCLIB_COMM_WORKER
 
 # Includes folder we need when compiling
 

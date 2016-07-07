@@ -287,12 +287,12 @@ int main ( int argc, char* argv[] ) {
 		fprintf(stderr," width:%d height:%d",n_outer_tiles_width,n_outer_tiles_height);
 	}
 
-	upcxx::upcxx_bcast(&n_outer_tiles_width, &n_outer_tiles_width, sizeof(int), 0);
-	upcxx::upcxx_bcast(&n_outer_tiles_height, &n_outer_tiles_height, sizeof(int), 0);
+	upcxx::bcast(&n_outer_tiles_width, &n_outer_tiles_width, sizeof(int), 0);
+	upcxx::bcast(&n_outer_tiles_height, &n_outer_tiles_height, sizeof(int), 0);
 
 	printf("passed 2\n");
-	upcxx::upcxx_bcast(&strlen_1, &strlen_1, sizeof(int), 0);
-	upcxx::upcxx_bcast(&strlen_2, &strlen_2, sizeof(int), 0);
+	upcxx::bcast(&strlen_1, &strlen_1, sizeof(int), 0);
+	upcxx::bcast(&strlen_2, &strlen_2, sizeof(int), 0);
 
 	printf("passed 3\n");
 
@@ -303,8 +303,8 @@ int main ( int argc, char* argv[] ) {
 
 	printf("passed 4\n");
 
-	upcxx::upcxx_bcast(string_1, string_1, sizeof(char)*strlen_1, 0);
-	upcxx::upcxx_bcast(string_2, string_2, sizeof(char)*strlen_2, 0);
+	upcxx::bcast(string_1, string_1, sizeof(char)*strlen_1, 0);
+	upcxx::bcast(string_2, string_2, sizeof(char)*strlen_2, 0);
 
 	printf( "Imported %d x %d tiles.\n", n_outer_tiles_width, n_outer_tiles_height);
 
