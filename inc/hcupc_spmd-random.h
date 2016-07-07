@@ -80,7 +80,7 @@ inline char * vsdescript(void)
 
 inline int selectvictim()
 {
-	const int ranks = upcxx::global_ranks()
+	const int ranks = upcxx::global_ranks();
         const int me = upcxx::global_myrank();
 	// might attempting same victim multiple times
         int last = last_steal;
