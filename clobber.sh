@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if [ `env | grep HCPP_ROOT | wc -l` -ne 1 ]
+if [ `env | grep HCLIB_ROOT | wc -l` -ne 1 ]
 then
   echo "Please source setMeFirst.sh first"
   exit
