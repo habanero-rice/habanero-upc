@@ -243,9 +243,12 @@ inline void pop_execute_comm_task() {
 
 #ifdef DIST_WS
 
-const static char* baseline_distWS = getenv("HCPP_DIST_WS_BASELINE");
+const static char* successonly_distWS = getenv("HCPP_DIST_WS_SUCCESSONLY");
+const static char* glb_distWS = successonly_distWS ? NULL : getenv("HCPP_DIST_WS_GLB");
+const static char* baseline_distWS =  (successonly_distWS || glb_distWS) ? NULL : "true";
 
-void hcpp_finish_barrier_distWS() {
+/*
+void hcpp_finish_barrier_successonly_distWS() {
 	int status = NO_TERM;
 
 	hupcpp::barrier();
@@ -255,7 +258,7 @@ void hcpp_finish_barrier_distWS() {
 		pop_execute_comm_task();
 
 		upcxx::advance();
-		bool tasksReceived = received_tasks_from_victim();
+		bool tasksReceived = received_tasks_from_victim(false);
 		if(tasksReceived) {
 			decrement_tasks_in_flight_count();
 		}
@@ -263,12 +266,12 @@ void hcpp_finish_barrier_distWS() {
 
 		// 1. If i have extra tasks then I should feed others
 		if(!initiate_global_steal()) {
-			serve_pending_distSteal_request();
+			serve_pending_distSteal_request_successonly();
 		}
 
 		// 2. If my workers are asking global steals then I should try dist ws
 		else {
-			bool success = search_tasks_globally();
+			bool success = search_tasks_globally_successonly();
 			if(success) tryTermination = false;
 		}
 
@@ -277,7 +280,7 @@ void hcpp_finish_barrier_distWS() {
 			if(singlePlace) break;
 			status = cbarrier_inc();
 			while (status != TERM) {
-				const bool isTrue = (received_tasks_from_victim() || detectWork()) && cbarrier_dec() != TERM;
+				const bool isTrue = (received_tasks_from_victim(false) || detectWork()) && cbarrier_dec() != TERM;
 				if (isTrue) {
 					status = NO_TERM;
 					break;
@@ -295,6 +298,124 @@ void hcpp_finish_barrier_distWS() {
 	hupcpp::barrier();
 }
 
+
+void hcpp_finish_barrier_glb_distWS() {
+	int status = NO_TERM;
+
+	hupcpp::barrier();
+	const bool singlePlace = upcxx::global_ranks() == 1;
+
+	while (status != TERM) {
+		pop_execute_comm_task();
+
+		upcxx::advance();
+		bool tasksReceived = received_tasks_from_victim(true);
+		if(tasksReceived) {
+			decrement_tasks_in_flight_count();
+		}
+		bool tryTermination = true;
+
+		// 1. If i have extra tasks then I should feed others
+		if(!initiate_global_steal()) {
+			serve_pending_distSteal_request_glb();
+		}
+
+		// 2. If my workers are asking global steals then I should try dist ws
+		else {
+			bool success = search_tasks_globally_glb();
+			if(success) tryTermination = false;
+		}
+
+		// 3. If I failed stealing and my workers are idle, I should try termination
+		if(tryTermination && totalPendingLocalAsyncs() == 0 && total_asyncs_inFlight() == 0) {
+			if(singlePlace) break;
+			status = cbarrier_inc();
+			while (status != TERM) {
+				const bool isTrue = (received_tasks_from_victim(true) || detectWork()) && cbarrier_dec() != TERM;
+				if (isTrue) {
+					status = NO_TERM;
+					break;
+				}
+				else {
+					upcxx::advance();	// only when this place is sure all other place are idle
+				}
+				status = cbarrier_test();
+			}
+		}
+	}
+
+	HASSERT(totalPendingLocalAsyncs() == 0);
+
+	hupcpp::barrier();
+}
+*/
+
+void hcpp_finish_barrier() {
+	int status = NO_TERM;
+
+	hupcpp::barrier();
+	const bool singlePlace = upcxx::global_ranks() == 1;
+
+	auto checkIncomingTasksFromLifelines = baseline_distWS ? [=]() { /* Do nothing */ }
+							 : ( successonly_distWS ? [=](){ if(received_tasks_from_victim(false)) { decrement_tasks_in_flight_count(); } }
+							 : [=](){ if(received_tasks_from_victim(true)) { decrement_tasks_in_flight_count(); } } );
+
+	auto feedRemoteThieves = baseline_distWS ? [=]() { serve_pending_distSteal_request_baseline(); }
+							 : ( successonly_distWS ? [=]() { serve_pending_distSteal_request_successonly(); }
+							 : [=]() { serve_pending_distSteal_request_glb(); } );
+
+   auto initiateRemoteSteals = baseline_distWS ? [=]() { return search_tasks_globally_baseline(); }
+   	   	   	   	   	   	   	 : ( successonly_distWS ? [=]() { return search_tasks_globally_successonly(); }
+   	   	   	   	   	   	   	 : [=]() { return search_tasks_globally_glb(); } );
+
+	auto cancelBarrierTermination = baseline_distWS ? [=](){ return (detectWork() && cbarrier_dec() != TERM); }
+							 : ( successonly_distWS ? [=](){ return ((received_tasks_from_victim(false) || detectWork()) && cbarrier_dec() != TERM); }
+							 : [=](){ return ((received_tasks_from_victim(true) || detectWork()) && cbarrier_dec() != TERM); } );
+
+	while (status != TERM) {
+		pop_execute_comm_task();
+
+		upcxx::advance();
+
+		checkIncomingTasksFromLifelines();
+
+		bool tryTermination = true;
+
+		// 1. If i have extra tasks then I should feed others
+		if(!initiate_global_steal()) {
+			feedRemoteThieves();
+		}
+
+		// 2. If my workers are asking global steals then I should try dist ws
+		else {
+			bool success = initiateRemoteSteals();
+			if(success) tryTermination = false;
+		}
+
+		// 3. If I failed stealing and my workers are idle, I should try termination
+		if(tryTermination && totalPendingLocalAsyncs() == 0 && total_asyncs_inFlight() == 0) {
+			if(singlePlace) break;
+			status = cbarrier_inc();
+			while (status != TERM) {
+				const bool isTrue = cancelBarrierTermination();
+				if (isTrue) {
+					status = NO_TERM;
+					break;
+				}
+				else {
+					upcxx::advance();	// only when this place is sure all other place are idle
+				}
+				status = cbarrier_test();
+			}
+		}
+	}
+
+	HASSERT(totalPendingLocalAsyncs() == 0);
+
+	hupcpp::barrier();
+}
+
+/*
 void hcpp_finish_barrier_baseline_distWS() {
 	int status = NO_TERM;
 
@@ -342,14 +463,17 @@ void hcpp_finish_barrier_baseline_distWS() {
 }
 
 void hcpp_finish_barrier() {
-	if(baseline_distWS) {
-		hcpp_finish_barrier_baseline_distWS();
+	if(successonly_distWS) {
+		hcpp_finish_barrier_successonly_distWS();
+	}
+	else if(glb_distWS) {
+		hcpp_finish_barrier_glb_distWS()
 	}
 	else {
-		hcpp_finish_barrier_distWS();
+		hcpp_finish_barrier_baseline_distWS();
 	}
 }
-
+*/
 #else
 
 void hcpp_finish_barrier() {
@@ -365,7 +489,7 @@ void hcpp_finish_barrier() {
 
 		upcxx::advance();
 
-		bool tasksReceived = received_tasks_from_victim();
+		bool tasksReceived = received_tasks_from_victim(false);
 		if(tasksReceived) {
 			decrement_tasks_in_flight_count();
 		}
@@ -374,7 +498,7 @@ void hcpp_finish_barrier() {
 			if(singlePlace) break;
 			status = cbarrier_inc();
 			while (status != TERM) {
-				const bool isTrue = (received_tasks_from_victim() || detectWork()) && cbarrier_dec() != TERM;
+				const bool isTrue = (received_tasks_from_victim(false) || detectWork()) && cbarrier_dec() != TERM;
 				if (isTrue) {
 					status = NO_TERM;
 					break;

@@ -90,6 +90,12 @@ extern volatile int idle_workers;	// counts computation workers only
 
 double totalTasksStolenInOneShot = -1; // may be fraction as well (getenv)
 
+/*
+ * GLB Specific
+ */
+int glb_max_rand_attempts = 1;
+int current_glb_max_rand_attempts = 0;
+
 static int* contacted_victims;
 static int* queued_thieves;
 static int task_transfer_threshold;
@@ -289,8 +295,12 @@ void decrement_tasks_in_flight_count() {
 	}
 }
 
-bool received_tasks_from_victim() {
-	return tasks_received>0;
+bool received_tasks_from_victim(bool glb) {
+	const bool tasks = tasks_received>0;
+	if(glb) {
+		current_glb_max_rand_attempts = 0;
+	}
+	return tasks;
 }
 
 /*
@@ -313,15 +323,30 @@ void initialize_distws_setOfThieves() {
 	if(upcxx::global_myrank() == 0) {
 #ifdef DIST_WS
 		cout << "---------DIST_WS_RUNTIME_INFO-----------" << endl;
-		if(getenv("HCPP_DIST_WS_BASELINE")) {
+		bool baseline = true;
+		if(getenv("HCPP_DIST_WS_SUCCESSONLY")) {
+			printf(">>> HCPP_DIST_WS_SUCCESSONLY\t\t= true\n");
+			baseline = false;
+		}
+
+		if(getenv("HCPP_DIST_WS_GLB")) {
+			printf(">>> HCPP_DIST_WS_GLB\t\t= true\n");
+			assert(baseline && "Error.. Cannot enable both HCPP_DIST_WS_SUCCESSONLY and HCPP_DIST_WS_GLB");
+			baseline = false;
+			if(getenv("HCPP_DIST_WS_GLB_RAND")) {
+				glb_max_rand_attempts = atoi(getenv("HCPP_DIST_WS_GLB_RAND"));
+				printf(">>> HCPP_DIST_WS_GLB_RAND\t\t= %d\n",glb_max_rand_attempts);
+			}
+		}
+
+		if(baseline) {
 			printf(">>> HCPP_DIST_WS_BASELINE\t\t= true\n");
 		}
-		else {
-			printf(">>> HCPP_DIST_WS_BASELINE\t\t= false\n");
-		}
+
 		if(getenv("HCPP_CANCEL_CYCLIC_STEALS")) {
 			printf(">>> HCPP_CANCEL_CYCLIC_STEALS\t\t= true\n");
 		}
+
 		if(totalTasksStolenInOneShot < 1) {
 			printf("WARNING (HCPP_STEAL_N): N should always be positive integer, setting it as 1\n");
 			totalTasksStolenInOneShot = 1;
@@ -424,7 +449,7 @@ void launch_upcxx_async(T* lambda, int dest) {
  * a pending remote steal request and send asyncAny using upcxx::async.
  * At the end it will publish its local load.
  */
-bool serve_pending_distSteal_request() {
+bool serve_pending_distSteal_request_successonly() {
 	// if im here then means I have tasks available
 	out_of_work = false;
 	while(!idle_workers && thieves_waiting) {
@@ -475,6 +500,10 @@ bool serve_pending_distSteal_request() {
 	publish_local_load_info();
 
 	return true;
+}
+
+bool serve_pending_distSteal_request_glb() {
+
 }
 
 bool serve_pending_distSteal_request_baseline() {
@@ -538,9 +567,42 @@ bool serve_pending_distSteal_request_baseline() {
 	return true;
 }
 
-inline void mark_myPlace_asIdle() {
+inline void mark_myPlace_asIdle_successonly() {
 	out_of_work = true;
 	workAvail[upcxx::global_myrank()] = NOT_WORKING;
+}
+
+inline void mark_myPlace_asIdle_lockedVersion() {
+	LOCK_REQ_SELF;
+	workAvail[upcxx::global_myrank()] = NOT_WORKING;
+	int pendingReq = req_thread[upcxx::global_myrank()];
+	req_thread[upcxx::global_myrank()] = REQ_UNAVAILABLE;
+	UNLOCK_REQ_SELF;
+
+	if(pendingReq >= 0) {
+		// invalidate steal request. this steal request has failed
+		// This will get the thief out of the while loop in steal_from_victim()
+		waitForTaskFromVictim[pendingReq] = false;
+	}
+}
+
+/*
+ * When a rank becomes a thief, it would try "N" random
+ * victim selections first, followed by setting up lifelines
+ *
+ * However, in one search cycle it might be possible that it fails
+ * in both. In the next search cycles it should never try random selections
+ * and hence we return true to hint that random attempts are already done
+ */
+inline bool mark_myPlace_asIdle_glb() {
+	if(out_of_work) {
+		return (current_glb_max_rand_attempts < glb_max_rand_attempts);
+	}
+	else {
+		out_of_work = true;
+		mark_myPlace_asIdle_lockedVersion();
+		return false;
+	}
 }
 
 inline void mark_myPlace_asIdle_baseline() {
@@ -548,17 +610,7 @@ inline void mark_myPlace_asIdle_baseline() {
 		return;
 	}
 	else {
-		LOCK_REQ_SELF;
-		workAvail[upcxx::global_myrank()] = NOT_WORKING;
-		int pendingReq = req_thread[upcxx::global_myrank()];
-		req_thread[upcxx::global_myrank()] = REQ_UNAVAILABLE;
-		UNLOCK_REQ_SELF;
-
-		if(pendingReq >= 0) {
-			// invalidate steal request. this steal request has failed
-			// This will get the thief out of the while loop in steal_from_victim()
-			waitForTaskFromVictim[pendingReq] = false;
-		}
+		mark_myPlace_asIdle_lockedVersion();
 	}
 }
 
@@ -579,16 +631,14 @@ void receipt_of_stealRequest() {
  * Saraswat, V.A., Kambadur, P., Kodali, S., Grove, D., Krishnamoorthy,
  * S.: Lifeline-based global load balancing. In: PPoPP. pp. 201-212 (2011)
  */
-bool search_tasks_globally() {
-	// show this thread as not working
-	mark_myPlace_asIdle();
+bool search_tasks_globally_lifeline(bool glb) {
 	// restart victim selection
 	resetVictimArray();
 
 	const int me = upcxx::global_myrank();
 	int victims_contacted = 0;
 	/* check all other threads */
-	for (int i = 1; i < upcxx::global_ranks() && !received_tasks_from_victim(); i++) {
+	for (int i = 1; i < upcxx::global_ranks() && !received_tasks_from_victim(glb); i++) {
 		const int v = selectvictim();
 		if(victim_already_contacted(v)) continue;
 
@@ -626,8 +676,13 @@ bool search_tasks_globally() {
 	return victims_contacted>0;
 }
 
+bool search_tasks_globally_successonly() {
+	// show this thread as not working
+	mark_myPlace_asIdle_successonly();
+	return search_tasks_globally_lifeline(false);
+}
 
-inline int findwork_baseline() {
+inline int findwork_baseline(bool glb) {
 	int workDetected;
 
 	do {
@@ -653,6 +708,8 @@ inline int findwork_baseline() {
 				}
 				UNLOCK_REQ(v);
 
+				if(glb) current_glb_max_rand_attempts++;
+
 				if (success) {
 #ifdef HCPP_DEBUG
 					cout <<upcxx::global_myrank() << ": Receiving tasks from " << v << endl;
@@ -664,6 +721,10 @@ inline int findwork_baseline() {
 					cout <<upcxx::global_myrank() << ": Failed to steal from " << v << endl;
 #endif
 					record_failedSteal_timeline();
+				}
+
+				if(glb && current_glb_max_rand_attempts >= glb_max_rand_attempts) {
+					return NONE_WORKING;
 				}
 			}
 
@@ -683,13 +744,10 @@ inline bool steal_from_victim_baseline(int victim) {
 	return true;
 }
 
-bool search_tasks_globally_baseline() {
-	// show this thread as not working
-	mark_myPlace_asIdle_baseline();
-
+inline bool search_tasks_globally_synchronous(bool glb) {
 	bool success = false;
 	while(true) {
-		const int victim = findwork_baseline();
+		const int victim = findwork_baseline(glb);
 		if(victim >= 0) {
 			// once this function returns, then it means the work is received from victim
 			success = steal_from_victim_baseline(victim);
@@ -697,6 +755,7 @@ bool search_tasks_globally_baseline() {
 				workAvail[upcxx::global_myrank()] = 0;
 				req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
 				//success steal, increment the counter
+				if(glb) current_glb_max_rand_attempts = 0;
 				break;	// start the fast path
 			}
 			else {
@@ -710,8 +769,30 @@ bool search_tasks_globally_baseline() {
 			break;
 		}
 	}
-
 	return success;
+}
+
+bool search_tasks_globally_baseline() {
+	// show this thread as not working
+	mark_myPlace_asIdle_baseline();
+
+	return search_tasks_globally_synchronous(false);
+}
+
+bool search_tasks_globally_glb() {
+	// show this thread as not working
+	const bool shouldTryRandomSteals = mark_myPlace_asIdle_glb();
+
+	bool success = false;
+	if(shouldTryRandomSteals) {
+		// Start with attempting steal from random victims
+		success = search_tasks_globally_synchronous(true);
+	}
+
+	if(!success) {
+		// Now try the lifeline approach
+		return search_tasks_globally_lifeline(true);
+	}
 }
 #endif
 
