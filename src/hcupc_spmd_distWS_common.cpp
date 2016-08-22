@@ -119,6 +119,8 @@ upcxx::shared_array<int> req_thread;
 upcxx::shared_array<upcxx::shared_lock> asyncsInFlightCountLock;
 upcxx::shared_array<int> asyncsInFlight;
 
+#define MAX_ASYNC_ANY_TASKS_SHIPMENT 5
+
 #define REQ_AVAILABLE	-1	 /* req_thread */
 #define REQ_UNAVAILABLE  -2  /* req_thread */
 #define NOT_WORKING      -1  /* work_available */
@@ -138,17 +140,13 @@ upcxx::shared_array<int> asyncsInFlight;
 #define DECREMENT_TASK_IN_FLIGHT(i)     {asyncsInFlightCountLock[i].get().lock(); asyncsInFlight[i] = asyncsInFlight[i]-1;      asyncsInFlightCountLock[i].get().unlock(); }
 
 /*
- * Used only at the source
- */
-void increment_task_in_flight_self() {
-	(&asyncsInFlightCountLock[upcxx::global_myrank()])->lock();
-	asyncsInFlight[upcxx::global_myrank()] = asyncsInFlight[upcxx::global_myrank()]+1;
-	(&asyncsInFlightCountLock[upcxx::global_myrank()])->unlock();
-}
-
-/*
  * Used only at the source. This is used only when asyncCopy is invoked
  */
+
+void increment_task_in_flight_self() {
+	INCREMENT_TASK_IN_FLIGHT_SELF;
+}
+
 inline void decrement_task_in_flight_self(int tasks) {
 	(&asyncsInFlightCountLock[upcxx::global_myrank()])->lock();
 	asyncsInFlight[upcxx::global_myrank()] = asyncsInFlight[upcxx::global_myrank()]-tasks;
@@ -443,6 +441,71 @@ void launch_upcxx_async(T* lambda, int dest) {
 }
 
 /*
+ * Communication worker uses this routine to steal asyncAny from its
+ * companion computation workers and then send them to remote thief
+ */
+inline hcpp::remoteAsyncAny_task* steal_from_my_computation_workers(int *count) {
+	hcpp::remoteAsyncAny_task* tasks = (hcpp::remoteAsyncAny_task*) malloc(sizeof(hcpp::remoteAsyncAny_task) * MAX_ASYNC_ANY_TASKS_SHIPMENT);
+	int i = 0;
+	for( ; i<totalTasksStolenInOneShot; i++) {
+		// Steal task from computation workers
+		if(i>0 && idle_workers) break;
+		bool success = hcpp::steal_fromComputeWorkers_forDistWS(&(tasks[i]));
+		if(!success) break;	// never return from here as it will be bug in case HCPP_STEAL_N>1
+		increment_outgoing_tasks();
+	}
+
+	if(i >0) {
+		/*
+		 * Now that the tasks are stolen from the computation workers, these tasks would be sent to
+		 * remote thief for sure. This would be done by using one single upcxx::async and hence
+		 * simply increment outgoing task counter
+		 */
+		INCREMENT_TASK_IN_FLIGHT_SELF;
+	}
+
+	*count = i;
+	return tasks;
+}
+
+/*
+ * Communication worker uses this routine to ship asyncAny tasks to a remote thief
+ */
+inline void ship_asyncAny_to_remote_thief(hcpp::remoteAsyncAny_task* asyncs, int count, int thief, bool baselineWS) {
+	success_steals_stats();
+	const int source = upcxx::global_myrank();
+	hcpp::remoteAsyncAny_task tasks[MAX_ASYNC_ANY_TASKS_SHIPMENT];
+	assert(count <= 5 && "HCPP_STEAL_N doesn't mismatch");
+	memcpy(tasks, asyncs, count*sizeof(hcpp::remoteAsyncAny_task));
+	free(asyncs);
+
+#ifdef HCPP_DEBUG
+	cout <<upcxx::global_myrank() << ": Sending " << count << " tasks to " << thief << endl;
+#endif
+
+	auto lambda_for_thief = [tasks, count, source, baselineWS]() {
+		const int dest = upcxx::global_myrank();
+		assert(source != dest);
+		unwrap_n_asyncAny_tasks(tasks, count);
+		if(baselineWS) {
+			DECREMENT_TASK_IN_FLIGHT(source);
+			// this flag is only modified by thief, but victim can also mark false if its out of work
+			waitForTaskFromVictim[dest] = false;
+		}
+		else {
+			queue_source_place_of_remoteTask(source);
+			unmark_victimContacted(source);
+		}
+	};
+
+	launch_upcxx_async<decltype(lambda_for_thief)>(&lambda_for_thief, thief);
+	if(baselineWS) {
+		req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
+	}
+	upcxx::advance();
+}
+
+/*
  * Victim function.
  * Victim pops pending steal requests. If its able to steal even
  * one asyncAny task from its computation worker, it will pop
@@ -454,41 +517,14 @@ inline bool serve_pending_distSteal_request_asynchronous() {
 	out_of_work = false;
 	while(!idle_workers && thieves_waiting) {
 		// First make sure, we still have tasks, hence try local steal first
-		int i=0;
-		hcpp::remoteAsyncAny_task tasks[5];
+		int count = 0;
+		hcpp::remoteAsyncAny_task* tasks = steal_from_my_computation_workers(&count);
 
-		for( ; i<totalTasksStolenInOneShot; i++) {
-			// Steal task from computation workers
-			if(i>0 && idle_workers) break;
-			bool success = hcpp::steal_fromComputeWorkers_forDistWS(&tasks[i]);
-			if(!success) break;	// never return from here as it will be bug in case HCPP_STEAL_N>1
-			increment_outgoing_tasks();
-		}
-
-		if(i > 0) {
-			// Increment outgoing task counter
-			increment_task_in_flight_self();
-
+		if(count > 0) {
 			// pop a thief
 			const int thief = pop_thief();
 			HASSERT(thief >= 0);
-			// use upcxx::async to send task to requestor
-#ifdef HCPP_DEBUG
-			cout <<upcxx::global_myrank() << ": Sending " << i << " tasks to " << thief << endl;
-#endif
-			success_steals_stats();
-			const int source = upcxx::global_myrank();
-			auto lambda_for_thief = [tasks, i, source]() {
-				const int dest = upcxx::global_myrank();
-				assert(source != dest);
-				unwrap_n_asyncAny_tasks(tasks, i);
-				//decrement_task_in_flight(source);
-				queue_source_place_of_remoteTask(source);
-				unmark_victimContacted(source);
-			};
-
-			launch_upcxx_async<decltype(lambda_for_thief)>(&lambda_for_thief, thief);
-			upcxx::advance();
+			ship_asyncAny_to_remote_thief(tasks, count, thief, false);
 		}
 		else {
 			out_of_work = true;
@@ -507,59 +543,30 @@ bool serve_pending_distSteal_request_successonly() {
 	return true;
 }
 
-inline bool serve_pending_distSteal_request_synchronous() {
-	// if im here then means I have tasks available
-
+inline int renewed_as_victim() {
+	const int declared_load = hcpp::totalAsyncAnyAvailable();
 	if(req_thread[upcxx::global_myrank()] == REQ_UNAVAILABLE) {
 		// this will be true only in two conditions:
 		// 1. this thread was a thief in previous iteration
 		// 2. this thread just started with work
-		const int work = hcpp::totalAsyncAnyAvailable();
-		if(work) {
+		if(declared_load) {
 			req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
 			//glb: we now handling this case when we return from this function
 			//workAvail[upcxx::global_myrank()] = work;
-			return true;
 		}
-		return false;
 	}
+	return declared_load;
+}
 
+inline bool serve_pending_distSteal_request_synchronous() {
+	// if im here then means I have tasks available
 	int requestor = req_thread[upcxx::global_myrank()];
 	if (requestor >= 0) {
-		int i=0;
-		hcpp::remoteAsyncAny_task tasks[5];
+		int count = 0;
+		hcpp::remoteAsyncAny_task* tasks = steal_from_my_computation_workers(&count);
 
-		for( ; i<totalTasksStolenInOneShot; i++) {
-			if(i>0 && idle_workers) break;
-			// Steal task from computation workers
-			bool success = hcpp::steal_fromComputeWorkers_forDistWS(&tasks[i]);
-			if(!success) break;	// never return from here as it will be bug in case HCPP_STEAL_N>1
-			increment_outgoing_tasks();
-		}
-
-		if(i > 0) {
-			// Increment outgoing task counter
-			INCREMENT_TASK_IN_FLIGHT_SELF;
-
-
-			// use upcxx::async to send task to requestor
-#ifdef HCPP_DEBUG
-			cout <<upcxx::global_myrank() << ": Sending " << i << " tasks to " << requestor << endl;
-#endif
-			success_steals_stats();
-			const int source = upcxx::global_myrank();
-			auto lambda_for_thief = [tasks, i, source]() {
-				const int dest = upcxx::global_myrank();
-				assert(source != dest);
-				unwrap_n_asyncAny_tasks(tasks, i);
-				DECREMENT_TASK_IN_FLIGHT(source);
-				// this flag is only modified by thief, but victim can also mark false if its out of work
-				waitForTaskFromVictim[dest] = false;
-			};
-
-			launch_upcxx_async<decltype(lambda_for_thief)>(&lambda_for_thief, requestor);
-			req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
-			upcxx::advance();
+		if(count > 0) {
+			ship_asyncAny_to_remote_thief(tasks, count, requestor, true);
 		}
 	}
 
@@ -567,10 +574,13 @@ inline bool serve_pending_distSteal_request_synchronous() {
 }
 
 bool serve_pending_distSteal_request_baseline() {
-	const bool success = serve_pending_distSteal_request_synchronous();
+	bool success = false;
+	if(renewed_as_victim() > 0) {
+          success = serve_pending_distSteal_request_synchronous();
+        }
 	// re-advertise correct work
 	//TODO: The following is executed unconditionally in asynchronous steal above.. check..
-	if(success) publish_local_load_info();
+	publish_local_load_info();
 	return success;
 }
 
