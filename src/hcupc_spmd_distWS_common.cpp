@@ -449,7 +449,7 @@ void launch_upcxx_async(T* lambda, int dest) {
  * a pending remote steal request and send asyncAny using upcxx::async.
  * At the end it will publish its local load.
  */
-bool serve_pending_distSteal_request_successonly() {
+inline bool serve_pending_distSteal_request_asynchronous() {
 	// if im here then means I have tasks available
 	out_of_work = false;
 	while(!idle_workers && thieves_waiting) {
@@ -496,17 +496,18 @@ bool serve_pending_distSteal_request_successonly() {
 		}
 	}
 
-	// re-advertise correct work
-	publish_local_load_info();
-
 	return true;
 }
 
-bool serve_pending_distSteal_request_glb() {
-
+bool serve_pending_distSteal_request_successonly() {
+	const bool success = serve_pending_distSteal_request_asynchronous();
+	//TODO: The following is executed conditionally in synchronous steal below.. check..
+	// re-advertise correct work
+	publish_local_load_info();
+	return true;
 }
 
-bool serve_pending_distSteal_request_baseline() {
+inline bool serve_pending_distSteal_request_synchronous() {
 	// if im here then means I have tasks available
 
 	if(req_thread[upcxx::global_myrank()] == REQ_UNAVAILABLE) {
@@ -516,7 +517,8 @@ bool serve_pending_distSteal_request_baseline() {
 		const int work = hcpp::totalAsyncAnyAvailable();
 		if(work) {
 			req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
-			workAvail[upcxx::global_myrank()] = work;
+			//glb: we now handling this case when we return from this function
+			//workAvail[upcxx::global_myrank()] = work;
 			return true;
 		}
 		return false;
@@ -561,10 +563,23 @@ bool serve_pending_distSteal_request_baseline() {
 		}
 	}
 
-	// re-advertise correct work
-	publish_local_load_info();
-
 	return true;
+}
+
+bool serve_pending_distSteal_request_baseline() {
+	const bool success = serve_pending_distSteal_request_synchronous();
+	// re-advertise correct work
+	//TODO: The following is executed unconditionally in asynchronous steal above.. check..
+	if(success) publish_local_load_info();
+	return success;
+}
+
+bool serve_pending_distSteal_request_glb() {
+	const bool success = serve_pending_distSteal_request_synchronous();
+	if(!success) return false;
+
+	if(success) publish_local_load_info();
+	return success;
 }
 
 inline void mark_myPlace_asIdle_successonly() {
