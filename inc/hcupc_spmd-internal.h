@@ -61,6 +61,7 @@ bool serve_pending_distSteal_request_successonly();
 bool serve_pending_distSteal_request_glb();
 bool serve_pending_distSteal_request_baseline();
 bool search_tasks_globally_successonly();
+bool search_tasks_globally_successonly_glb();
 bool search_tasks_globally_glb();
 bool search_tasks_globally_baseline();
 void decrement_tasks_in_flight_count();

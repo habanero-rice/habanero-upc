@@ -673,7 +673,41 @@ void receipt_of_stealRequest() {
  * Saraswat, V.A., Kambadur, P., Kodali, S., Grove, D., Krishnamoorthy,
  * S.: Lifeline-based global load balancing. In: PPoPP. pp. 201-212 (2011)
  */
-bool search_tasks_globally_lifeline(bool glb) {
+inline bool attempt_steal_or_set_lifeline(int v, int me) {
+	if(victim_already_contacted(v)) return false;
+
+	int workProbe = workAvail[v];
+	total_asyncany_rdma_probes_stats();
+
+	if (workProbe > task_transfer_threshold) { // TODO: may not be good in case of HPT
+		// try to queue for work
+		mark_victimContacted(v);
+		waiting_for_returnAsync = true;
+
+		auto lambda = [me]() {
+			queue_thief(me);
+			upcxx::async(me, NULL)(receipt_of_stealRequest);
+		};
+
+		launch_upcxx_async<decltype(lambda)>(&lambda, v);
+
+#ifdef HCPP_DEBUG
+		cout <<upcxx::global_myrank() << ": Sending steal request to " << v << endl;
+#endif
+
+		while(waiting_for_returnAsync) {
+			upcxx::advance();
+#ifdef HCPP_DEBUG
+			cout <<upcxx::global_myrank() << ": Waiting for return async"<< endl;
+#endif
+		}
+		return true;
+	}
+
+	return false;
+}
+
+inline bool search_for_lifelines(bool glb) {
 	// restart victim selection
 	resetVictimArray();
 
@@ -681,36 +715,30 @@ bool search_tasks_globally_lifeline(bool glb) {
 	int victims_contacted = 0;
 	/* check all other threads */
 	for (int i = 1; i < upcxx::global_ranks() && !received_tasks_from_victim(glb); i++) {
-		const int v = selectvictim();
-		if(victim_already_contacted(v)) continue;
+		const int victim = selectvictim();
+		if(me == victim) continue;
+		const bool success = attempt_steal_or_set_lifeline(victim, me);
+		if(success) victims_contacted++;
+	} /*for */
 
-		int workProbe = workAvail[v];
-		total_asyncany_rdma_probes_stats();
+	contacted_victims_statistics(victims_contacted);
 
-		if (workProbe > task_transfer_threshold) { // TODO: may not be good in case of HPT
-			// try to queue for work
-			mark_victimContacted(v);
-			waiting_for_returnAsync = true;
+	return victims_contacted>0;
+}
 
-			auto lambda = [me]() {
-				queue_thief(me);
-				upcxx::async(me, NULL)(receipt_of_stealRequest);
-			};
+inline bool search_for_hypercube_lifelines(bool glb) {
+	// restart victim selection
+	resetVictimArray();
 
-			launch_upcxx_async<decltype(lambda)>(&lambda, v);
-
-#ifdef HCPP_DEBUG
-			cout <<upcxx::global_myrank() << ": Sending steal request to " << v << endl;
-#endif
-			victims_contacted++;
-
-			while(waiting_for_returnAsync) {
-				upcxx::advance();
-#ifdef HCPP_DEBUG
-				cout <<upcxx::global_myrank() << ": Waiting for return async"<< endl;
-#endif
-			}
-		}
+	const int me = upcxx::global_myrank();
+	int victims_contacted = 0;
+	/* check all hypercube neighbours */
+	// The lowBound and highBound of this for loop as well as the function below to calculate the victim id was contributed by Karthik S.M.
+	for(int i=0; i < log(upcxx::global_ranks()) && !received_tasks_from_victim(glb); ++i) {
+		const int victim = ((int)(pow(2,i)+upcxx::global_myrank())) % (upcxx::global_ranks());
+		if(me == victim) continue;
+		const bool success = attempt_steal_or_set_lifeline(victim, me);
+		if(success) victims_contacted++;
 	} /*for */
 
 	contacted_victims_statistics(victims_contacted);
@@ -721,7 +749,13 @@ bool search_tasks_globally_lifeline(bool glb) {
 bool search_tasks_globally_successonly() {
 	// show this thread as not working
 	mark_myPlace_asIdle_successonly();
-	return search_tasks_globally_lifeline(false);
+	return search_for_lifelines(false);
+}
+
+bool search_tasks_globally_successonly_glb() {
+	// show this thread as not working
+	mark_myPlace_asIdle_successonly();
+	return search_for_hypercube_lifelines(false);
 }
 
 inline int findwork_baseline(bool glb) {
@@ -833,7 +867,7 @@ bool search_tasks_globally_glb() {
 
 	if(!success) {
 		// Now try the lifeline approach
-		return search_tasks_globally_lifeline(true);
+		return search_for_lifelines(true);
 	}
 }
 #endif
