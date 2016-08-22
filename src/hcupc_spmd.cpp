@@ -241,10 +241,6 @@ inline void pop_execute_comm_task() {
 	}
 }
 
-const static char* successonly_distWS = getenv("HCPP_DIST_WS_SUCCESSONLY");
-const static char* glb_distWS = successonly_distWS ? NULL : getenv("HCPP_DIST_WS_GLB");
-const static char* baseline_distWS =  (successonly_distWS || glb_distWS) ? NULL : "true";
-
 void hcpp_finish_barrier() {
 	int status = NO_TERM;
 
@@ -253,19 +249,19 @@ void hcpp_finish_barrier() {
 
 #ifdef DIST_WS
 	auto checkIncomingTasksFromLifelines = baseline_distWS ? [=]() { /* Do nothing */ }
-							 : ( successonly_distWS ? [=](){ if(received_tasks_from_victim(false)) { decrement_tasks_in_flight_count(); } }
+							 : ( (successonly_distWS || successonly_glb_distWS) ? [=](){ if(received_tasks_from_victim(false)) { decrement_tasks_in_flight_count(); } }
 							 : [=](){ if(received_tasks_from_victim(true)) { decrement_tasks_in_flight_count(); } } );
 
 	auto feedRemoteThieves = baseline_distWS ? [=]() { serve_pending_distSteal_request_baseline(); }
-							 : ( successonly_distWS ? [=]() { serve_pending_distSteal_request_successonly(); }
+							 : ( (successonly_distWS || successonly_glb_distWS) ? [=]() { serve_pending_distSteal_request_successonly(); }
 							 : [=]() { serve_pending_distSteal_request_glb(); } );
 
    auto initiateRemoteSteals = baseline_distWS ? [=]() { return search_tasks_globally_baseline(); }
-   	   	   	   	   	   	   	 : ( successonly_distWS ? [=]() { return search_tasks_globally_successonly(); }
+   	   	   	   	   	   	   	 : ( (successonly_distWS || successonly_glb_distWS) ? [=]() { return search_tasks_globally_successonly(); }
    	   	   	   	   	   	   	 : [=]() { return search_tasks_globally_glb(); } );
 
 	auto cancelBarrierTermination = baseline_distWS ? [=](){ return (detectWork() && cbarrier_dec() != TERM); }
-							 : ( successonly_distWS ? [=](){ return ((received_tasks_from_victim(false) || detectWork()) && cbarrier_dec() != TERM); }
+							 : ( (successonly_distWS || successonly_glb_distWS) ? [=](){ return ((received_tasks_from_victim(false) || detectWork()) && cbarrier_dec() != TERM); }
 							 : [=](){ return ((received_tasks_from_victim(true) || detectWork()) && cbarrier_dec() != TERM); } );
 #else
 	auto checkIncomingTasks = [=]() { if(received_tasks_from_victim(false)) { decrement_tasks_in_flight_count(); } };

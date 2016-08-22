@@ -322,12 +322,17 @@ void initialize_distws_setOfThieves() {
 #ifdef DIST_WS
 		cout << "---------DIST_WS_RUNTIME_INFO-----------" << endl;
 		bool baseline = true;
-		if(getenv("HCPP_DIST_WS_SUCCESSONLY")) {
+		if(successonly_distWS) {
 			printf(">>> HCPP_DIST_WS_SUCCESSONLY\t\t= true\n");
 			baseline = false;
 		}
 
-		if(getenv("HCPP_DIST_WS_GLB")) {
+		if(successonly_glb_distWS) {
+			printf(">>> HCPP_DIST_WS_SUCCESSONLY_GLB\t\t= true\n");
+			baseline = false;
+		}
+
+		if(glb_distWS) {
 			printf(">>> HCPP_DIST_WS_GLB\t\t= true\n");
 			assert(baseline && "Error.. Cannot enable both HCPP_DIST_WS_SUCCESSONLY and HCPP_DIST_WS_GLB");
 			baseline = false;
