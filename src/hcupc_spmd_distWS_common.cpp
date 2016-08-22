@@ -587,10 +587,20 @@ bool serve_pending_distSteal_request_baseline() {
 }
 
 bool serve_pending_distSteal_request_glb() {
-	const bool success = serve_pending_distSteal_request_synchronous();
-	if(!success) return false;
+	bool success = true;
+	if(renewed_as_victim() == 0) {
+		publish_local_load_info();
+		return false;
+	}
 
-	if(success) publish_local_load_info();
+	while(req_thread[upcxx::global_myrank()]>0 || (!idle_workers && thieves_waiting)) {
+		success = serve_pending_distSteal_request_synchronous();
+		if(!success) break;
+		success = serve_pending_distSteal_request_asynchronous();
+		if(!success) break;
+	}
+
+	publish_local_load_info();
 	return success;
 }
 
