@@ -475,7 +475,7 @@ inline void ship_asyncAny_to_remote_thief(hcpp::remoteAsyncAny_task* asyncs, int
 	success_steals_stats();
 	const int source = upcxx::global_myrank();
 	hcpp::remoteAsyncAny_task tasks[MAX_ASYNC_ANY_TASKS_SHIPMENT];
-	assert(count <= 5 && "HCPP_STEAL_N doesn't mismatch");
+	assert(count <= MAX_ASYNC_ANY_TASKS_SHIPMENT && "HCPP_STEAL_N doesn't mismatch");
 	memcpy(tasks, asyncs, count*sizeof(hcpp::remoteAsyncAny_task));
 	free(asyncs);
 
@@ -514,33 +514,36 @@ inline void ship_asyncAny_to_remote_thief(hcpp::remoteAsyncAny_task* asyncs, int
  */
 inline bool serve_pending_distSteal_request_asynchronous() {
 	// if im here then means I have tasks available
+	bool success = true;
 	out_of_work = false;
-	while(!idle_workers && thieves_waiting) {
-		// First make sure, we still have tasks, hence try local steal first
-		int count = 0;
-		hcpp::remoteAsyncAny_task* tasks = steal_from_my_computation_workers(&count);
+	// First make sure, we still have tasks, hence try local steal first
+	int count = 0;
+	hcpp::remoteAsyncAny_task* tasks = steal_from_my_computation_workers(&count);
 
-		if(count > 0) {
-			// pop a thief
-			const int thief = pop_thief();
-			HASSERT(thief >= 0);
-			ship_asyncAny_to_remote_thief(tasks, count, thief, false);
-		}
-		else {
-			out_of_work = true;
-			break; // cannot steal tasks to send remote
-		}
+	if(count > 0) {
+		// pop a thief
+		const int thief = pop_thief();
+		HASSERT(thief >= 0);
+		ship_asyncAny_to_remote_thief(tasks, count, thief, false);
+	}
+	else {
+		out_of_work = true;
+		success = false;
 	}
 
-	return true;
+	return success;
 }
 
 bool serve_pending_distSteal_request_successonly() {
-	const bool success = serve_pending_distSteal_request_asynchronous();
-	//TODO: The following is executed conditionally in synchronous steal below.. check..
-	// re-advertise correct work
+	bool success = true;
+	// if im here then means I have tasks available
+	while(!idle_workers && thieves_waiting) {
+		success = serve_pending_distSteal_request_asynchronous();
+		if(!success) break;
+	}
+
 	publish_local_load_info();
-	return true;
+	return success;
 }
 
 inline int renewed_as_victim() {
@@ -576,10 +579,9 @@ inline bool serve_pending_distSteal_request_synchronous() {
 bool serve_pending_distSteal_request_baseline() {
 	bool success = false;
 	if(renewed_as_victim() > 0) {
-          success = serve_pending_distSteal_request_synchronous();
-        }
+		success = serve_pending_distSteal_request_synchronous();
+	}
 	// re-advertise correct work
-	//TODO: The following is executed unconditionally in asynchronous steal above.. check..
 	publish_local_load_info();
 	return success;
 }
