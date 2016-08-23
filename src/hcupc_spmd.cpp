@@ -249,7 +249,7 @@ void hcpp_finish_barrier() {
 
 #ifdef DIST_WS
 	auto checkIncomingTasksFromLifelines = baseline_distWS ? [=]() { /* Do nothing */ }
-							 : [=](){ if(received_tasks_from_victim()) { decrement_tasks_in_flight_count(); } } );
+							 : [=](){ if(received_tasks_from_victim()) { decrement_tasks_in_flight_count(); } };
 
 	auto feedRemoteThieves = baseline_distWS ? [=]() { serve_pending_distSteal_request_baseline(); }
 							 : ( (successonly_distWS || successonly_glb_distWS) ? [=]() { serve_pending_distSteal_request_successonly(); }
