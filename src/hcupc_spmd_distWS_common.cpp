@@ -334,6 +334,7 @@ void initialize_distws_setOfThieves() {
 			baseline = false;
 			if(getenv("HCPP_DIST_WS_GLB_RAND")) {
 				glb_max_rand_attempts = atoi(getenv("HCPP_DIST_WS_GLB_RAND"));
+				assert(glb_max_rand_attempts <= (upcxx::global_ranks()-1) && "Error: HCPP_DIST_WS_GLB_RAND should be less than total number of Places");
 				printf(">>> HCPP_DIST_WS_GLB_RAND\t\t= %d\n",glb_max_rand_attempts);
 			}
 		}
@@ -805,7 +806,7 @@ inline int findwork_baseline(bool glb) {
 					record_failedSteal_timeline();
 				}
 
-				if(glb && current_glb_max_rand_attempts >= glb_max_rand_attempts) {
+				if(glb && (current_glb_max_rand_attempts >= glb_max_rand_attempts)) {
 					return NONE_WORKING;
 				}
 			}
@@ -837,7 +838,6 @@ inline bool search_tasks_globally_synchronous(bool glb) {
 				workAvail[upcxx::global_myrank()] = 0;
 				req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
 				out_of_work=false;
-				//success steal, increment the counter
 				if(glb) current_glb_max_rand_attempts = 0;
 				break;	// start the fast path
 			}
