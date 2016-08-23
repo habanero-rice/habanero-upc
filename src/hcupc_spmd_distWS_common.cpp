@@ -575,10 +575,11 @@ inline bool serve_pending_distSteal_request_synchronous() {
 
 		if(count > 0) {
 			ship_asyncAny_to_remote_thief(tasks, count, requestor, true);
+			return true;
 		}
 	}
 
-	return true;
+	return false;
 }
 
 bool serve_pending_distSteal_request_baseline() {
