@@ -261,9 +261,8 @@ void hcpp_finish_barrier() {
    	   	   	   	   	   	   	 : ( successonly_glb_distWS ? [=]() { return search_tasks_globally_successonly_glb(); }
    	   	   	   	   	   	   	 : [=]() { return search_tasks_globally_glb(); } ));
 
-	auto cancelBarrierTermination = baseline_distWS ? [=](){ return (detectWork() && cbarrier_dec() != TERM); }
-							 : ( (successonly_distWS || successonly_glb_distWS) ? [=](){ return ((received_tasks_from_victim(false) || detectWork()) && cbarrier_dec() != TERM); }
-							 : [=](){ return ((received_tasks_from_victim(true) || detectWork()) && cbarrier_dec() != TERM); } );
+	auto cancelBarrierTermination = (baseline_distWS || successonly_distWS || successonly_glb_distWS) ? [=](){ return ((received_tasks_from_victim(false) || detectWork()) && cbarrier_dec() != TERM); }
+							 : [=](){ return ((received_tasks_from_victim(true) || detectWork()) && cbarrier_dec() != TERM); };
 #else
 	auto checkIncomingTasks = [=]() { if(received_tasks_from_victim(false)) { decrement_tasks_in_flight_count(); } };
 	auto cancelBarrierTermination = [=](){ return ((received_tasks_from_victim(false) || detectWork()) && cbarrier_dec() != TERM); };

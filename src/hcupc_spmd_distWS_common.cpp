@@ -295,7 +295,7 @@ void decrement_tasks_in_flight_count() {
 
 bool received_tasks_from_victim(bool glb) {
 	const bool tasks = tasks_received>0;
-	if(glb) {
+	if(glb && tasks) {
 		current_glb_max_rand_attempts = 0;
 	}
 	return tasks;
@@ -485,7 +485,7 @@ inline void ship_asyncAny_to_remote_thief(hcpp::remoteAsyncAny_task* asyncs, int
 	free(asyncs);
 
 #ifdef HCPP_DEBUG
-	cout <<upcxx::global_myrank() << ": Sending " << count << " tasks to " << thief << endl;
+	cout <<upcxx::global_myrank() << ": (baseline=" << baselineWS << ") Sending " << count << " tasks to " << thief << endl;
 #endif
 
 	auto lambda_for_thief = [tasks, count, source, baselineWS]() {
@@ -598,11 +598,17 @@ bool serve_pending_distSteal_request_glb() {
 		return false;
 	}
 
-	while(req_thread[upcxx::global_myrank()]>0 || (!idle_workers && thieves_waiting)) {
-		success = serve_pending_distSteal_request_synchronous();
-		if(!success) break;
-		success = serve_pending_distSteal_request_asynchronous();
-		if(!success) break;
+	while(success) {
+		if(req_thread[upcxx::global_myrank()]>=0) {
+			success = serve_pending_distSteal_request_synchronous();
+		}
+		else if(success && !idle_workers && thieves_waiting) {
+			success = serve_pending_distSteal_request_asynchronous();
+		}
+		else {
+			success = false;
+			break;
+		}
 	}
 
 	publish_local_load_info();
