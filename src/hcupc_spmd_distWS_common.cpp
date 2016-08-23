@@ -423,7 +423,6 @@ void publish_local_load_info() {
 #endif
 }
 
-#ifdef DIST_WS
 /*
  * Runs at thief when victim sends asyncAny task to thief
  */
@@ -877,6 +876,5 @@ bool search_tasks_globally_glb() {
 		return search_for_lifelines(true);
 	}
 }
-#endif
 
 }
