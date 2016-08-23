@@ -249,8 +249,7 @@ void hcpp_finish_barrier() {
 
 #ifdef DIST_WS
 	auto checkIncomingTasksFromLifelines = baseline_distWS ? [=]() { /* Do nothing */ }
-							 : ( (successonly_distWS || successonly_glb_distWS) ? [=](){ if(received_tasks_from_victim(false)) { decrement_tasks_in_flight_count(); } }
-							 : [=](){ if(received_tasks_from_victim(true)) { decrement_tasks_in_flight_count(); } } );
+							 : [=](){ if(received_tasks_from_victim()) { decrement_tasks_in_flight_count(); } } );
 
 	auto feedRemoteThieves = baseline_distWS ? [=]() { serve_pending_distSteal_request_baseline(); }
 							 : ( (successonly_distWS || successonly_glb_distWS) ? [=]() { serve_pending_distSteal_request_successonly(); }
@@ -260,12 +259,8 @@ void hcpp_finish_barrier() {
    	   	   	   	   	   	   	 : ( successonly_distWS ? [=]() { return search_tasks_globally_successonly(); }
    	   	   	   	   	   	   	 : ( successonly_glb_distWS ? [=]() { return search_tasks_globally_successonly_glb(); }
    	   	   	   	   	   	   	 : [=]() { return search_tasks_globally_glb(); } ));
-
-	auto cancelBarrierTermination = (baseline_distWS || successonly_distWS || successonly_glb_distWS) ? [=](){ return ((received_tasks_from_victim(false) || detectWork()) && cbarrier_dec() != TERM); }
-							 : [=](){ return ((received_tasks_from_victim(true) || detectWork()) && cbarrier_dec() != TERM); };
 #else
-	auto checkIncomingTasks = [=]() { if(received_tasks_from_victim(false)) { decrement_tasks_in_flight_count(); } };
-	auto cancelBarrierTermination = [=](){ return ((received_tasks_from_victim(false) || detectWork()) && cbarrier_dec() != TERM); };
+	auto checkIncomingTasks = [=]() { if(received_tasks_from_victim()) { decrement_tasks_in_flight_count(); } };
 #endif
 
 	while (status != TERM) {
@@ -299,7 +294,7 @@ void hcpp_finish_barrier() {
 			if(singlePlace) break;
 			status = cbarrier_inc();
 			while (status != TERM) {
-				const bool isTrue = cancelBarrierTermination();
+				const bool isTrue = ((received_tasks_from_victim() || detectWork()) && cbarrier_dec() != TERM);
 				if (isTrue) {
 					status = NO_TERM;
 					break;

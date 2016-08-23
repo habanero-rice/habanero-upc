@@ -65,7 +65,7 @@ bool search_tasks_globally_successonly_glb();
 bool search_tasks_globally_glb();
 bool search_tasks_globally_baseline();
 void decrement_tasks_in_flight_count();
-bool received_tasks_from_victim(bool);
+bool received_tasks_from_victim();
 void create_distributed_hpt(int row, int column, int chasis, int blade, int rank);
 int* create_arrray_of_nearestVictim();
 void print_topology_information();

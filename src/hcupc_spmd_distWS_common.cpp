@@ -293,12 +293,8 @@ void decrement_tasks_in_flight_count() {
 	}
 }
 
-bool received_tasks_from_victim(bool glb) {
-	const bool tasks = tasks_received>0;
-	if(glb && tasks) {
-		current_glb_max_rand_attempts = 0;
-	}
-	return tasks;
+bool received_tasks_from_victim() {
+	return (tasks_received>0);
 }
 
 /*
@@ -567,6 +563,7 @@ inline int renewed_as_victim() {
 
 inline bool serve_pending_distSteal_request_synchronous() {
 	// if im here then means I have tasks available
+	out_of_work = false;
 	int requestor = req_thread[upcxx::global_myrank()];
 	if (requestor >= 0) {
 		int count = 0;
@@ -592,6 +589,9 @@ bool serve_pending_distSteal_request_baseline() {
 }
 
 bool serve_pending_distSteal_request_glb() {
+	current_glb_max_rand_attempts = 0;
+	out_of_work = false;
+
 	bool success = true;
 	if(renewed_as_victim() == 0) {
 		publish_local_load_info();
@@ -720,7 +720,7 @@ inline bool search_for_lifelines(bool glb) {
 	const int me = upcxx::global_myrank();
 	int victims_contacted = 0;
 	/* check all other threads */
-	for (int i = 1; i < upcxx::global_ranks() && !received_tasks_from_victim(glb); i++) {
+	for (int i = 1; i < upcxx::global_ranks() && !received_tasks_from_victim(); i++) {
 		const int victim = selectvictim();
 		if(me == victim) continue;
 		const bool success = attempt_steal_or_set_lifeline(victim, me);
@@ -740,7 +740,7 @@ inline bool search_for_hypercube_lifelines(bool glb) {
 	int victims_contacted = 0;
 	/* check all hypercube neighbours */
 	// The lowBound and highBound of this for loop as well as the function below to calculate the victim id was contributed by Karthik S.M.
-	for(int i=0; i < log(upcxx::global_ranks()) && !received_tasks_from_victim(glb); ++i) {
+	for(int i=0; i < log(upcxx::global_ranks()) && !received_tasks_from_victim(); ++i) {
 		const int victim = ((int)(pow(2,i)+upcxx::global_myrank())) % (upcxx::global_ranks());
 		if(me == victim) continue;
 		const bool success = attempt_steal_or_set_lifeline(victim, me);
@@ -836,6 +836,7 @@ inline bool search_tasks_globally_synchronous(bool glb) {
 			if(success) {
 				workAvail[upcxx::global_myrank()] = 0;
 				req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
+				out_of_work=false;
 				//success steal, increment the counter
 				if(glb) current_glb_max_rand_attempts = 0;
 				break;	// start the fast path
