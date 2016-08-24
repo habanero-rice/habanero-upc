@@ -606,7 +606,7 @@ bool serve_pending_distSteal_request_glb() {
 		if(req_thread[upcxx::global_myrank()]>=0) {
 			success = serve_pending_distSteal_request_synchronous();
 		}
-		else if(success && !idle_workers && thieves_waiting) {
+		else if(!idle_workers && thieves_waiting) {
 			success = serve_pending_distSteal_request_asynchronous();
 		}
 		else {
