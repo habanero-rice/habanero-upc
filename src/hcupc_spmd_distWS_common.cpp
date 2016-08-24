@@ -653,7 +653,7 @@ inline bool mark_myPlace_asIdle_glb() {
 	else {
 		out_of_work = true;
 		mark_myPlace_asIdle_lockedVersion();
-		return false;
+		return true;
 	}
 }
 
