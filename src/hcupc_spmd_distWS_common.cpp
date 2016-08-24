@@ -718,9 +718,6 @@ inline bool attempt_steal_or_set_lifeline(int v, int me) {
 }
 
 inline bool search_for_lifelines() {
-	// restart victim selection
-	resetVictimArray();
-
 	const int me = upcxx::global_myrank();
 	int victims_contacted = 0;
 	/* check all other threads */
@@ -736,10 +733,7 @@ inline bool search_for_lifelines() {
 	return victims_contacted>0;
 }
 
-inline bool search_for_hypercube_lifelines(bool glb) {
-	// restart victim selection
-	resetVictimArray();
-
+inline bool search_for_hypercube_lifelines() {
 	const int me = upcxx::global_myrank();
 	int victims_contacted = 0;
 	/* check all hypercube neighbours */
@@ -759,13 +753,17 @@ inline bool search_for_hypercube_lifelines(bool glb) {
 bool search_tasks_globally_successonly() {
 	// show this thread as not working
 	mark_myPlace_asIdle_successonly();
+	// restart victim selection
+	resetVictimArray();
 	return search_for_lifelines();
 }
 
 bool search_tasks_globally_successonly_glb() {
 	// show this thread as not working
 	mark_myPlace_asIdle_successonly();
-	return search_for_hypercube_lifelines(false);
+	// restart victim selection
+	resetVictimArray();
+	return search_for_hypercube_lifelines();
 }
 
 inline bool steal_from_victim_baseline(int victim) {
@@ -821,9 +819,6 @@ inline int attempt_synchronous_steal(int v) {
 }
 
 inline bool search_tasks_globally_synchronous(bool glb) {
-	/* check all other threads */
-	resetVictimArray();
-
 	for (int i = 1; i < upcxx::global_ranks(); i++) {
 		int v = selectvictim();
 		const int status = attempt_synchronous_steal(v);
@@ -854,13 +849,16 @@ inline bool search_tasks_globally_synchronous(bool glb) {
 bool search_tasks_globally_baseline() {
 	// show this thread as not working
 	mark_myPlace_asIdle_baseline();
-
+	// restart victim selection
+	resetVictimArray();
 	return search_tasks_globally_synchronous(false);
 }
 
 bool search_tasks_globally_glb() {
 	// show this thread as not working
 	const bool shouldTryRandomSteals = mark_myPlace_asIdle_glb();
+	// restart victim selection
+	resetVictimArray();
 
 	bool success = false;
 	if(shouldTryRandomSteals) {
@@ -870,7 +868,7 @@ bool search_tasks_globally_glb() {
 
 	if(!success) {
 		// Now try the lifeline approach
-		return search_for_lifelines();
+		return search_for_hypercube_lifelines();
 	}
 }
 
