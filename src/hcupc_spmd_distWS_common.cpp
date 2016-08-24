@@ -717,7 +717,7 @@ inline bool attempt_steal_or_set_lifeline(int v, int me) {
 	return false;
 }
 
-inline bool search_for_lifelines(bool glb) {
+inline bool search_for_lifelines() {
 	// restart victim selection
 	resetVictimArray();
 
@@ -759,7 +759,7 @@ inline bool search_for_hypercube_lifelines(bool glb) {
 bool search_tasks_globally_successonly() {
 	// show this thread as not working
 	mark_myPlace_asIdle_successonly();
-	return search_for_lifelines(false);
+	return search_for_lifelines();
 }
 
 bool search_tasks_globally_successonly_glb() {
@@ -870,7 +870,7 @@ bool search_tasks_globally_glb() {
 
 	if(!success) {
 		// Now try the lifeline approach
-		return search_for_lifelines(true);
+		return search_for_lifelines();
 	}
 }
 
