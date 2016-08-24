@@ -476,7 +476,7 @@ inline hcpp::remoteAsyncAny_task* steal_from_my_computation_workers(int *count) 
  * Communication worker uses this routine to ship asyncAny tasks to a remote thief
  */
 inline void ship_asyncAny_to_remote_thief(hcpp::remoteAsyncAny_task* asyncs, int count, int thief, bool baselineWS) {
-	success_steals_stats();
+	success_steals_stats(baselineWS);
 	const int source = upcxx::global_myrank();
 	hcpp::remoteAsyncAny_task tasks[MAX_ASYNC_ANY_TASKS_SHIPMENT];
 	assert(count <= MAX_ASYNC_ANY_TASKS_SHIPMENT && "HCPP_STEAL_N doesn't mismatch");

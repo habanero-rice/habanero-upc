@@ -81,14 +81,13 @@ const static char* successonly_glb_distWS = (successonly_distWS || glb_distWS) ?
 const static char* baseline_distWS =  (successonly_distWS || glb_distWS || successonly_glb_distWS) ? NULL : "true";
 
 // statistics related
-void get_totalAsyncAny_stats(counter_t *tasksStolen, counter_t* successSteals, counter_t* failSteals, counter_t* recvStealReqsWhenFree, counter_t*, counter_t*);
 void get_steal_stats(int* s1, int* s2, int* s3, int* s4, int* s4P);
 void record_failedSteal_timeline();
 void contacted_victims_statistics(int victims_contacted);
 bool check_cyclicSteals(int v, int head, int tail, int* queued_thieves);
 void check_if_out_of_work_stats(bool out_of_work);
 void stats_initTimelineEvents();
-void success_steals_stats();
+void success_steals_stats(bool);
 void total_asyncany_rdma_probes_stats();
 void start_finish_spmd_timer();
 void end_finish_spmd_timer();

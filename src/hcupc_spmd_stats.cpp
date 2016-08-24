@@ -48,20 +48,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 	    	#define _TIMER_ON_
  * 	    - Rebuild hcpp (cd hcpp/compileTree; make clean; make install)
  *
- *  3) Total inter-place message exchanges for distributed work-stealing: (assume total_success_steals = total inter-place
+ *  3) Total inter-place message exchanges for distributed work-stealing: (assume total_success_synchronous_steals = total inter-place
  *  		successful steals; total_failed_steals = total inter-place failed Steals)
  *  		(Note: Check metod search_tasks_globally)
  *  	a) SuccessOnlyWS:
- *  		= Total RDMA probes + (2 * total_success_steals)
- *  		= (total_asyncany_rdma_probes) + (2 * total_success_steals)
+ *  		= Total RDMA probes + (2 * total_success_synchronous_steals)
+ *  		= (total_asyncany_rdma_probes) + (2 * total_success_synchronous_steals)
  *  	b) BaselineWS: (Note: Check method findwork_baseline)
- *  		= Total RDMA probes + ( (Total Locks + Total Unlocks)*(total_success_steals+total_failed_steals) )
- *  						+ (check queuing request * (total_success_steals+total_failed_steals) )
- *  						+ (queue request * total_success_steals)
- *  		= (total_asyncany_rdma_probes) + ( 2*(total_success_steals+total_failed_steals) )
- *  						+ (total_success_steals+total_failed_steals)
- *  						+ total_success_steals
- *  		= total_asyncany_rdma_probes + 4*total_success_steals + 3*total_failed_steals
+ *  		= Total RDMA probes + ( (Total Locks + Total Unlocks)*(total_success_synchronous_steals+total_failed_steals) )
+ *  						+ (check queuing request * (total_success_synchronous_steals+total_failed_steals) )
+ *  						+ (queue request * total_success_synchronous_steals)
+ *  		= (total_asyncany_rdma_probes) + ( 2*(total_success_synchronous_steals+total_failed_steals) )
+ *  						+ (total_success_synchronous_steals+total_failed_steals)
+ *  						+ total_success_synchronous_steals
+ *  		= total_asyncany_rdma_probes + 4*total_success_synchronous_steals + 3*total_failed_steals
  * 	3) Total number of inter-place failed steals, inter-place steals, inter-place tasks send, inter-place RDMA probes, total intra-place steals,
  * 		total intra-place pushes, number of victims contacted in each search phase, etc, are also provided
  *
@@ -79,7 +79,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace hupcpp {
 
 
-counter_t	total_success_steals=0;
+counter_t	total_success_synchronous_steals=0;
+counter_t   total_success_asynchronous_steals=0;
 counter_t	total_tasks_stolen=0;
 counter_t	total_failed_steals=0;
 counter_t	total_received_stealRequests_when_idle=0;
@@ -127,8 +128,9 @@ void check_if_out_of_work_stats(bool out_of_work) {
 	if(out_of_work) total_received_stealRequests_when_idle++;
 }
 
-void success_steals_stats() {
-	total_success_steals++;
+void success_steals_stats(bool baselineWS) {
+	if(baselineWS) total_success_synchronous_steals++;
+	else total_success_asynchronous_steals++;
 }
 
 // ----------------------STATISTICS FOR FAILED STEALS TIMELINE -----------------------------
@@ -240,9 +242,10 @@ void contacted_victims_statistics(int victims_contacted) {
 /*
  * only for statistics
  */
-void get_totalAsyncAny_stats(counter_t *tasksStolen, counter_t* successSteals, counter_t* failSteals, counter_t* recvStealReqsWhenFree, counter_t* cyclic_steals, counter_t* rdma_probes) {
+inline void get_totalAsyncAny_stats(counter_t *tasksStolen, counter_t* successAsyncSteals, counter_t* successSyncSteals, counter_t* failSteals, counter_t* recvStealReqsWhenFree, counter_t* cyclic_steals, counter_t* rdma_probes) {
 	*tasksStolen = total_tasks_stolen;
-	*successSteals = total_success_steals;
+	*successSyncSteals = total_success_synchronous_steals;
+	*successAsyncSteals = total_success_asynchronous_steals;
 	*failSteals = total_failed_steals;
 	*recvStealReqsWhenFree = total_received_stealRequests_when_idle;
 	*cyclic_steals = total_cyclic_steals;
@@ -250,7 +253,8 @@ void get_totalAsyncAny_stats(counter_t *tasksStolen, counter_t* successSteals, c
 	total_cyclic_steals = 0;
 	total_asyncany_rdma_probes = 0;
 	total_failed_steals = 0;
-	total_success_steals = 0;
+	total_success_synchronous_steals = 0;
+	total_success_asynchronous_steals=0;
 	total_tasks_stolen = 0;
 	total_received_stealRequests_when_idle = 0;
 }
@@ -303,25 +307,28 @@ static void runtime_statistics(double duration) {
 #endif
 
 	shared_array<counter_t> tasks_sendto_remotePlace;
-	shared_array<counter_t> total_dist_successSteals;
+	shared_array<counter_t> total_dist_success_async_steals;
+	shared_array<counter_t> total_dist_success_sync_steals;
 	shared_array<counter_t> total_dist_failedSteals;
 	shared_array<counter_t> total_recvStealReqsWhenFree;
 	shared_array<counter_t> total_cyclic_steals;
 	shared_array<counter_t> total_rdma_probes;
 
 	tasks_sendto_remotePlace.init(upcxx::global_ranks());
-	total_dist_successSteals.init(upcxx::global_ranks());
+	total_dist_success_async_steals.init(upcxx::global_ranks());
+	total_dist_success_sync_steals.init(upcxx::global_ranks());
 	total_dist_failedSteals.init(upcxx::global_ranks());
 	total_recvStealReqsWhenFree.init(upcxx::global_ranks());
 	total_cyclic_steals.init(upcxx::global_ranks());
 	total_rdma_probes.init(upcxx::global_ranks());
 
-	counter_t c4, c5, c6, c7, c8, c9;
+	counter_t c4, c5a, c5b, c6, c7, c8, c9;
 
-	get_totalAsyncAny_stats(&c4, &c5, &c6, &c7, &c8, &c9);
+	get_totalAsyncAny_stats(&c4, &c5a, &c5b, &c6, &c7, &c8, &c9);
 
 	tasks_sendto_remotePlace[upcxx::global_myrank()] = c4;
-	total_dist_successSteals[upcxx::global_myrank()] = c5;
+	total_dist_success_async_steals[upcxx::global_myrank()] = c5a;
+	total_dist_success_sync_steals[upcxx::global_myrank()] = c5b;
 	total_dist_failedSteals[upcxx::global_myrank()] = c6;
 	total_recvStealReqsWhenFree[upcxx::global_myrank()] = c7;
 	total_cyclic_steals[upcxx::global_myrank()] = c8;
@@ -367,7 +374,7 @@ static void runtime_statistics(double duration) {
 #ifdef HC_COMM_WORKER_STATS
 		int t1=0, t2=0, t3=0;
 #endif
-		counter_t t4=0, t5=0, t6=0, t7=0, t7b=0, t7c=0;
+		counter_t t4=0, t5a=0, t5b=0, t6=0, t7=0, t7b=0, t7c=0;
 		int t8=0,t9=0,t10=0,t11=0,t12=0;
 		double t13=0, t14=0, t15=0;
 		for(int i=0; i<upcxx::global_ranks(); i++) {
@@ -377,7 +384,8 @@ static void runtime_statistics(double duration) {
 			t3 += steal_ind_myPlace[i];
 #endif
 			t4 += tasks_sendto_remotePlace[i];
-			t5 += total_dist_successSteals[i];
+			t5a += total_dist_success_async_steals[i];
+			t5b += total_dist_success_sync_steals[i];
 			t6 += total_dist_failedSteals[i];
 			t7 += total_recvStealReqsWhenFree[i];
 			t7b += total_cyclic_steals[i];
@@ -400,17 +408,17 @@ static void runtime_statistics(double duration) {
 
 		printf("============================ MMTk Statistics Totals ============================\n");
 #ifdef HC_COMM_WORKER_STATS
-		printf("time.mu\ttimeFinishSPMD\ttotalPushOutDeq\ttotalPushInDeq\ttotalStealsInDeq\ttotalTasksSendToRemote\ttotalSuccessDistSteals\ttotalFailedDistSteals\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes\ttWork\ttOverhead\ttSearch");
+		printf("time.mu\ttimeFinishSPMD\ttotalPushOutDeq\ttotalPushInDeq\ttotalStealsInDeq\ttotalTasksSendToRemote\ttotalSuccessAsyncDistSteals\ttotalSuccessSyncDistSteals\ttotalFailedDistSteals\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes\ttWork\ttOverhead\ttSearch");
 		printf("\tS1\tS2\tS3\tS4\tS4Plus\n");
 
-		printf("%.3f\t%.3f\t%d\t%d\t%d\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%.3f\t%.3f\t%.5f",duration,finish_spmd_duration,t1,t2, t3, t4, t5, t6, t7, t7b, t7c, t13, t14, t15);
+		printf("%.3f\t%.3f\t%d\t%d\t%d\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%.3f\t%.3f\t%.5f",duration,finish_spmd_duration,t1,t2, t3, t4, t5a, t5b, t6, t7, t7b, t7c, t13, t14, t15);
 		printf("\t%d\t%d\t%d\t%d\t%d\n",t8,t9,t10,t11,t12);
 
 #else
-		printf("time.mu\ttimeFinishSPMD\ttotalTasksSendToRemote\ttotalSuccessDistSteals\ttotalFailedDistSteal\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes");
+		printf("time.mu\ttimeFinishSPMD\ttotalTasksSendToRemote\ttotalSuccessAsyncDistSteals\ttotalSuccessSyncDistSteals\ttotalFailedDistSteal\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes");
 		printf("\tS1\tS2\tS3\tS4\tS4Plus\n");
 
-		printf("%.3f\t%.3f\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu",duration,finish_spmd_duration,t4, t5, t6, t7, t7b, t7c);
+		printf("%.3f\t%.3f\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu",duration,finish_spmd_duration,t4, t5a, t5b, t6, t7, t7b, t7c);
 		printf("\t%d\t%d\t%d\t%d\t%d\n",t8,t9,t10,t11,t12);
 
 #endif
