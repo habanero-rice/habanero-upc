@@ -126,6 +126,9 @@ upcxx::shared_array<int> asyncsInFlight;
 #define NOT_WORKING      -1  /* work_available */
 #define NONE_WORKING     -2  /* result of probe sequence */
 
+#define SUCCESS_STEAL 0
+#define FAILED_STEAL 1
+
 #define LOCK_WORK_AVAIL(i)				workAvailLock[i].get().lock()
 #define UNLOCK_WORK_AVAIL(i)			workAvailLock[i].get().unlock()
 #define LOCK_WORK_AVAIL_SELF			(&workAvailLock[upcxx::global_myrank()])->lock()
@@ -765,6 +768,42 @@ bool search_tasks_globally_successonly_glb() {
 	return search_for_hypercube_lifelines(false);
 }
 
+inline int attempt_synchronous_steal(int v) {
+	int workProbe = workAvail[v];
+	const int me = upcxx::global_myrank();
+	total_asyncany_rdma_probes_stats();
+
+	if (workProbe == NOT_WORKING)
+		return NOT_WORKING;
+
+	if (workProbe > task_transfer_threshold) {
+		// try to queue for work
+		LOCK_REQ(v);
+		bool success = (req_thread[v] == REQ_AVAILABLE);
+		if (success) {
+			waitForTaskFromVictim[me] = true;	// no lock is required to modify this, but we always want to do this before marking our id at victim
+			req_thread[v] = me;
+		}
+		UNLOCK_REQ(v);
+
+		if (success) {
+#ifdef HCPP_DEBUG
+			cout <<upcxx::me << ": Receiving tasks from " << v << endl;
+#endif
+			return SUCCESS_STEAL;
+		}
+		else {
+#ifdef HCPP_DEBUG
+			cout <<upcxx::me << ": Failed to steal from " << v << endl;
+#endif
+			record_failedSteal_timeline();
+			return FAILED_STEAL;
+		}
+	}
+
+	return NOT_WORKING;
+}
+
 inline int findwork_baseline(bool glb) {
 	int workDetected;
 
@@ -775,40 +814,25 @@ inline int findwork_baseline(bool glb) {
 
 		for (int i = 1; i < upcxx::global_ranks(); i++) {
 			int v = selectvictim();
-			int workProbe = workAvail[v];
-			total_asyncany_rdma_probes_stats();
-
-			if (workProbe != NOT_WORKING)
-				workDetected = 1;
-
-			if (workProbe > task_transfer_threshold) {
-				// try to queue for work
-				LOCK_REQ(v);
-				bool success = (req_thread[v] == REQ_AVAILABLE);
-				if (success) {
-					waitForTaskFromVictim[upcxx::global_myrank()] = true;	// no lock is required to modify this, but we always want to do this before marking our id at victim
-					req_thread[v] = upcxx::global_myrank();
-				}
-				UNLOCK_REQ(v);
-
+			const int status = attempt_synchronous_steal(v);
+			switch(status) {
+			case SUCCESS_STEAL:
 				if(glb) current_glb_max_rand_attempts++;
+				return v;
+				break;
+			case FAILED_STEAL:
+				if(glb) current_glb_max_rand_attempts++;
+				/* Do nothing else */
+				break;
+			case NOT_WORKING:
+				/* Do nothing */
+				break;
+			default:
+				assert(0 && "Unexpected switch-case statement");
+			}
 
-				if (success) {
-#ifdef HCPP_DEBUG
-					cout <<upcxx::global_myrank() << ": Receiving tasks from " << v << endl;
-#endif
-					return v;
-				}
-				else {
-#ifdef HCPP_DEBUG
-					cout <<upcxx::global_myrank() << ": Failed to steal from " << v << endl;
-#endif
-					record_failedSteal_timeline();
-				}
-
-				if(glb && (current_glb_max_rand_attempts >= glb_max_rand_attempts)) {
-					return NONE_WORKING;
-				}
+			if(glb && (current_glb_max_rand_attempts >= glb_max_rand_attempts)) {
+				return NONE_WORKING;
 			}
 
 		} /*for */
