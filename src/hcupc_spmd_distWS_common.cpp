@@ -768,6 +768,15 @@ bool search_tasks_globally_successonly_glb() {
 	return search_for_hypercube_lifelines(false);
 }
 
+inline bool steal_from_victim_baseline(int victim) {
+	// Poke upcxx to push/pull tasks from upcxx queue
+	bool success = false;
+	while(waitForTaskFromVictim[upcxx::global_myrank()]) {
+		upcxx::advance();
+	}
+	return true;
+}
+
 inline int attempt_synchronous_steal(int v) {
 	int workProbe = workAvail[v];
 	const int me = upcxx::global_myrank();
@@ -790,6 +799,13 @@ inline int attempt_synchronous_steal(int v) {
 #ifdef HCPP_DEBUG
 			cout <<upcxx::me << ": Receiving tasks from " << v << endl;
 #endif
+			// once this function returns, then it means the work is received from victim
+			success = steal_from_victim_baseline(v);
+			if(success) {
+				workAvail[me] = 0;
+				req_thread[me] = REQ_AVAILABLE;
+				out_of_work=false;
+			}
 			return SUCCESS_STEAL;
 		}
 		else {
@@ -804,79 +820,35 @@ inline int attempt_synchronous_steal(int v) {
 	return NOT_WORKING;
 }
 
-inline int findwork_baseline(bool glb) {
-	int workDetected;
-
-	do {
-		workDetected = 0;
-		/* check all other threads */
-		resetVictimArray();
-
-		for (int i = 1; i < upcxx::global_ranks(); i++) {
-			int v = selectvictim();
-			const int status = attempt_synchronous_steal(v);
-			switch(status) {
-			case SUCCESS_STEAL:
-				if(glb) current_glb_max_rand_attempts++;
-				return v;
-				break;
-			case FAILED_STEAL:
-				if(glb) current_glb_max_rand_attempts++;
-				/* Do nothing else */
-				break;
-			case NOT_WORKING:
-				/* Do nothing */
-				break;
-			default:
-				assert(0 && "Unexpected switch-case statement");
-			}
-
-			if(glb && (current_glb_max_rand_attempts >= glb_max_rand_attempts)) {
-				return NONE_WORKING;
-			}
-
-		} /*for */
-
-	} while (workDetected);
-
-	return NONE_WORKING;
-}
-
-inline bool steal_from_victim_baseline(int victim) {
-	// Poke upcxx to push/pull tasks from upcxx queue
-	bool success = false;
-	while(waitForTaskFromVictim[upcxx::global_myrank()]) {
-		upcxx::advance();
-	}
-	return true;
-}
-
 inline bool search_tasks_globally_synchronous(bool glb) {
-	bool success = false;
-	while(true) {
-		const int victim = findwork_baseline(glb);
-		if(victim >= 0) {
-			// once this function returns, then it means the work is received from victim
-			success = steal_from_victim_baseline(victim);
-			if(success) {
-				workAvail[upcxx::global_myrank()] = 0;
-				req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
-				out_of_work=false;
-				if(glb) current_glb_max_rand_attempts = 0;
-				break;	// start the fast path
-			}
-			else {
-				// failed steal, increment the counter
-				// keep searching
-				continue;
-			}
-		}
-		else {
-			// probably all places are idle
+	/* check all other threads */
+	resetVictimArray();
+
+	for (int i = 1; i < upcxx::global_ranks(); i++) {
+		int v = selectvictim();
+		const int status = attempt_synchronous_steal(v);
+		switch(status) {
+		case SUCCESS_STEAL:
+			if(glb) current_glb_max_rand_attempts = 0;
+			return true;
+		case FAILED_STEAL:
+			if(glb) current_glb_max_rand_attempts++;
+			/* Do nothing else */
 			break;
+		case NOT_WORKING:
+			/* Do nothing */
+			break;
+		default:
+			assert(0 && "Unexpected switch-case statement");
 		}
-	}
-	return success;
+
+		if(glb && (current_glb_max_rand_attempts >= glb_max_rand_attempts)) {
+			return false;
+		}
+
+	} /*for */
+
+	return false;
 }
 
 bool search_tasks_globally_baseline() {
