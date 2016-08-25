@@ -708,7 +708,7 @@ inline bool attempt_steal_or_set_lifeline(int v, int me) {
 	return false;
 }
 
-inline bool search_for_lifelines() {
+inline bool search_for_lifelines(bool glb) {
 	const int me = upcxx::global_myrank();
 	const int ranks = upcxx::global_ranks();
 	int victims_contacted = 0;
@@ -717,12 +717,12 @@ inline bool search_for_lifelines() {
 	 * The lowBound and highBound in this case for loop as well as the function
 	 * to calculate the victim id was contributed by Karthik S.M.
 	 */
-	const int upperBound = successonly_distWS ? ranks : log(ranks);
-	auto getVictim = successonly_distWS ? ([=](int i) { return selectvictim(); }) : ([=](int i) { return ((int)(pow(2,i)+ranks)) % ranks; });
-
+	const int upperBound = glb ? ranks : log(ranks);
+	int victim;
 	/* check all other threads */
 	for (int i = 1; i < upperBound && !received_tasks_from_victim(); i++) {
-		const int victim = getVictim(i);
+		if(glb) victim = ((int)(pow(2,i)+ranks)) % ranks;
+		else victim = selectvictim();
 		if(me == victim) continue;
 		const bool success = attempt_steal_or_set_lifeline(victim, me);
 		if(success) victims_contacted++;
@@ -738,7 +738,8 @@ bool search_tasks_globally_successonly() {
 	mark_myPlace_asIdle();
 	// restart victim selection
 	resetVictimArray();
-	return search_for_lifelines();
+	bool glb = successonly_distWS ? false : true;
+	return search_for_lifelines(glb);
 }
 
 inline bool steal_from_victim_baseline(int victim) {
@@ -843,7 +844,7 @@ bool search_tasks_globally_glb() {
 
 	if(!success) {
 		// Now try the lifeline approach
-		return search_for_hypercube_lifelines();
+		return search_for_lifelines(true);
 	}
 }
 
