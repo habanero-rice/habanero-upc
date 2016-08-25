@@ -257,7 +257,7 @@ void hcpp_finish_barrier() {
 
    auto initiateRemoteSteals = baseline_distWS ? [=]() { return search_tasks_globally_baseline(); }
    	   	   	   	   	   	   	 : ( (successonly_distWS || successonly_glb_distWS) ? [=]() { return search_tasks_globally_successonly(); }
-   	   	   	   	   	   	   	 : [=]() { return search_tasks_globally_glb(); } ));
+   	   	   	   	   	   	   	 : [=]() { return search_tasks_globally_glb(); } );
 #else
 	auto checkIncomingTasks = [=]() { if(received_tasks_from_victim()) { decrement_tasks_in_flight_count(); } };
 #endif
