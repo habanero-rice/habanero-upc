@@ -619,23 +619,10 @@ bool serve_pending_distSteal_request_glb() {
 	return success;
 }
 
-inline bool mark_myPlace_asIdle() {
+inline void mark_myPlace_asIdle() {
 	const int me = upcxx::global_myrank();
 	if(out_of_work) {
-		if(glb_distWS) {
-			/*
-			 * When a rank becomes a thief, it would try "N" random
-			 * victim selections first, followed by setting up lifelines
-			 *
-			 * However, in one search cycle it might be possible that it fails
-			 * in both. In the next search cycles it should never try random selections
-			 * and hence we return true to hint that random attempts are already done
-			 */
-			return (current_glb_max_rand_attempts < glb_max_rand_attempts);
-		}
-		else {
-			return true;
-		}
+			return;
 	}
 
 	out_of_work = true;
@@ -653,8 +640,6 @@ inline bool mark_myPlace_asIdle() {
 				waitForTaskFromVictim[pendingReq] = false;
 			}
 	}
-
-	return true;
 }
 
 static bool waiting_for_returnAsync = false;
@@ -832,20 +817,35 @@ bool search_tasks_globally_baseline() {
 
 bool search_tasks_globally_glb() {
 	// show this thread as not working
-	const bool shouldTryRandomSteals = mark_myPlace_asIdle();
+	mark_myPlace_asIdle();
 	// restart victim selection
 	resetVictimArray();
 
+	/*
+	 * When a rank becomes a thief, it would try "N" random
+	 * victim selections first, followed by setting up lifelines
+	 *
+	 * However, in one search cycle it might be possible that it fails
+	 * in both. In the next search cycles it should never try random selections
+	 * and hence we return true to hint that random attempts are already done
+	 */
+	bool tryRandomVictim = (current_glb_max_rand_attempts < glb_max_rand_attempts);
+
 	bool success = false;
-	if(shouldTryRandomSteals) {
+	if(tryRandomVictim) {
 		// Start with attempting steal from random victims
 		success = search_tasks_globally_synchronous(true);
 	}
 
-	if(!success) {
+	// Recheck--in any case don't attempt lifeline without attempting required number of rand attempts
+	tryRandomVictim = (current_glb_max_rand_attempts < glb_max_rand_attempts);
+
+	if(!success && !tryRandomVictim) {
 		// Now try the lifeline approach
 		return search_for_lifelines(true);
 	}
+
+	return success;
 }
 
 }
