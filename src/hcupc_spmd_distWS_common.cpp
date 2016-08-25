@@ -720,7 +720,7 @@ inline bool search_for_lifelines(bool glb) {
 	const int upperBound = glb ? log(ranks) : ranks;
 	int victim;
 	/* check all other threads */
-	for (int i = 1; i < upperBound && !received_tasks_from_victim(); i++) {
+	for (int i = 0; i < upperBound && !received_tasks_from_victim(); i++) {
 		if(glb) victim = ((int)(pow(2,i)+me)) % ranks;
 		else victim = selectvictim();
 		if(me == victim) continue;
