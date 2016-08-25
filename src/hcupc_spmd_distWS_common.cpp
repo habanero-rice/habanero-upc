@@ -643,7 +643,6 @@ inline bool mark_myPlace_asIdle() {
 
 	if(baseline_distWS || glb_distWS) {
 			LOCK_REQ_SELF;
-			workAvail[me] = NOT_WORKING;
 			int pendingReq = req_thread[me];
 			req_thread[me] = REQ_UNAVAILABLE;
 			UNLOCK_REQ_SELF;
