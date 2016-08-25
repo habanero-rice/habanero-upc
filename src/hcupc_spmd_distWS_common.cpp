@@ -143,6 +143,36 @@ upcxx::shared_array<int> asyncsInFlight;
 #define DECREMENT_TASK_IN_FLIGHT(i)     {asyncsInFlightCountLock[i].get().lock(); asyncsInFlight[i] = asyncsInFlight[i]-1;      asyncsInFlightCountLock[i].get().unlock(); }
 
 /*
+ * victim uses to this to publish its load info in global address space
+ * to help thief in: a) finding correct victim; and b) termination detection.
+ */
+void publish_local_load_info() {
+#ifdef DIST_WS
+	const int total_aany = hcpp::totalAsyncAnyAvailable();
+	workAvail[upcxx::global_myrank()] = (total_aany>0) ? total_aany : totalPendingLocalAsyncs();
+#else
+	workAvail[upcxx::global_myrank()] = totalPendingLocalAsyncs();
+#endif
+}
+
+inline void mark_myPlace_asBusy() {
+	const int me = upcxx::global_myrank();
+	// don't need to do anything if I've already declared that I'm busy
+	if(!out_of_work) return;
+
+	out_of_work = false;
+	publish_local_load_info();
+
+	if(baseline_distWS || glb_distWS) {
+		current_glb_max_rand_attempts = 0; // glb only
+		LOCK_REQ_SELF;
+		assert(req_thread[me] == REQ_UNAVAILABLE);
+		req_thread[me] = REQ_AVAILABLE;
+		UNLOCK_REQ_SELF;
+	}
+}
+
+/*
  * Used only at the source. This is used only when asyncCopy is invoked
  */
 
@@ -411,19 +441,6 @@ int total_asyncs_inFlight() {
 }
 
 /*
- * victim uses to this to publish its load info in global address space
- * to help thief in: a) finding correct victim; and b) termination detection.
- */
-void publish_local_load_info() {
-#ifdef DIST_WS
-	const int total_aany = hcpp::totalAsyncAnyAvailable();
-	workAvail[upcxx::global_myrank()] = (total_aany>0) ? total_aany : totalPendingLocalAsyncs();
-#else
-	workAvail[upcxx::global_myrank()] = totalPendingLocalAsyncs();
-#endif
-}
-
-/*
  * Runs at thief when victim sends asyncAny task to thief
  */
 template <typename T>
@@ -518,7 +535,6 @@ inline void ship_asyncAny_to_remote_thief(hcpp::remoteAsyncAny_task* asyncs, int
  */
 inline bool serve_pending_distSteal_request_asynchronous() {
 	// if im here then means I have tasks available
-	bool success = true;
 	out_of_work = false;
 	// First make sure, we still have tasks, hence try local steal first
 	int count = 0;
@@ -529,13 +545,10 @@ inline bool serve_pending_distSteal_request_asynchronous() {
 		const int thief = pop_thief();
 		HASSERT(thief >= 0);
 		ship_asyncAny_to_remote_thief(tasks, count, thief, false);
-	}
-	else {
-		out_of_work = true;
-		success = false;
+		return true;
 	}
 
-	return success;
+	return false;
 }
 
 bool serve_pending_distSteal_request_successonly() {
@@ -618,6 +631,10 @@ bool serve_pending_distSteal_request_glb() {
 	publish_local_load_info();
 	return success;
 }
+
+/**************************************
+ *  Thief operated routines start here
+ **************************************/
 
 inline void mark_myPlace_asIdle() {
 	const int me = upcxx::global_myrank();
@@ -718,15 +735,6 @@ inline bool search_for_lifelines(bool glb) {
 	return victims_contacted>0;
 }
 
-bool search_tasks_globally_successonly() {
-	// show this thread as not working
-	mark_myPlace_asIdle();
-	// restart victim selection
-	resetVictimArray();
-	bool glb = successonly_distWS ? false : true;
-	return search_for_lifelines(glb);
-}
-
 inline bool steal_from_victim_baseline(int victim) {
 	// Poke upcxx to push/pull tasks from upcxx queue
 	bool success = false;
@@ -807,6 +815,15 @@ inline bool search_tasks_globally_synchronous(bool glb) {
 	return false;
 }
 
+bool search_tasks_globally_successonly() {
+	// show this thread as not working
+	mark_myPlace_asIdle();
+	// restart victim selection
+	resetVictimArray();
+	bool glb = successonly_distWS ? false : true;
+	return search_for_lifelines(glb);
+}
+
 bool search_tasks_globally_baseline() {
 	// show this thread as not working
 	mark_myPlace_asIdle();
@@ -822,7 +839,7 @@ bool search_tasks_globally_glb() {
 	resetVictimArray();
 
 	/*
-	 * When a rank becomes a thief, it would try "N" random
+	 * When a rank becomes a thief, it would try "HCPP_DIST_WS_GLB_RAND" number of random
 	 * victim selections first, followed by setting up lifelines
 	 *
 	 * However, in one search cycle it might be possible that it fails
