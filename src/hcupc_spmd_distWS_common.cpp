@@ -717,11 +717,11 @@ inline bool search_for_lifelines(bool glb) {
 	 * The lowBound and highBound in this case for loop as well as the function
 	 * to calculate the victim id was contributed by Karthik S.M.
 	 */
-	const int upperBound = glb ? ranks : log(ranks);
+	const int upperBound = glb ? log(ranks) : ranks;
 	int victim;
 	/* check all other threads */
 	for (int i = 1; i < upperBound && !received_tasks_from_victim(); i++) {
-		if(glb) victim = ((int)(pow(2,i)+ranks)) % ranks;
+		if(glb) victim = ((int)(pow(2,i)+me)) % ranks;
 		else victim = selectvictim();
 		if(me == victim) continue;
 		const bool success = attempt_steal_or_set_lifeline(victim, me);
