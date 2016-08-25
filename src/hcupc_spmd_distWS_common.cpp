@@ -710,27 +710,19 @@ inline bool attempt_steal_or_set_lifeline(int v, int me) {
 
 inline bool search_for_lifelines() {
 	const int me = upcxx::global_myrank();
+	const int ranks = upcxx::global_ranks();
 	int victims_contacted = 0;
+	/*
+	 * Hypercube neighbors:
+	 * The lowBound and highBound in this case for loop as well as the function
+	 * to calculate the victim id was contributed by Karthik S.M.
+	 */
+	const int upperBound = successonly_distWS ? ranks : log(ranks);
+	auto getVictim = successonly_distWS ? ([=](int i) { return selectvictim(); }) : ([=](int i) { return ((int)(pow(2,i)+ranks)) % ranks; });
+
 	/* check all other threads */
-	for (int i = 1; i < upcxx::global_ranks() && !received_tasks_from_victim(); i++) {
-		const int victim = selectvictim();
-		if(me == victim) continue;
-		const bool success = attempt_steal_or_set_lifeline(victim, me);
-		if(success) victims_contacted++;
-	} /*for */
-
-	contacted_victims_statistics(victims_contacted);
-
-	return victims_contacted>0;
-}
-
-inline bool search_for_hypercube_lifelines() {
-	const int me = upcxx::global_myrank();
-	int victims_contacted = 0;
-	/* check all hypercube neighbours */
-	// The lowBound and highBound of this for loop as well as the function below to calculate the victim id was contributed by Karthik S.M.
-	for(int i=0; i < log(upcxx::global_ranks()) && !received_tasks_from_victim(); ++i) {
-		const int victim = ((int)(pow(2,i)+upcxx::global_myrank())) % (upcxx::global_ranks());
+	for (int i = 1; i < upperBound && !received_tasks_from_victim(); i++) {
+		const int victim = getVictim(i);
 		if(me == victim) continue;
 		const bool success = attempt_steal_or_set_lifeline(victim, me);
 		if(success) victims_contacted++;
@@ -747,14 +739,6 @@ bool search_tasks_globally_successonly() {
 	// restart victim selection
 	resetVictimArray();
 	return search_for_lifelines();
-}
-
-bool search_tasks_globally_successonly_glb() {
-	// show this thread as not working
-	mark_myPlace_asIdle();
-	// restart victim selection
-	resetVictimArray();
-	return search_for_hypercube_lifelines();
 }
 
 inline bool steal_from_victim_baseline(int victim) {

@@ -256,8 +256,7 @@ void hcpp_finish_barrier() {
 							 : [=]() { serve_pending_distSteal_request_glb(); } );
 
    auto initiateRemoteSteals = baseline_distWS ? [=]() { return search_tasks_globally_baseline(); }
-   	   	   	   	   	   	   	 : ( successonly_distWS ? [=]() { return search_tasks_globally_successonly(); }
-   	   	   	   	   	   	   	 : ( successonly_glb_distWS ? [=]() { return search_tasks_globally_successonly_glb(); }
+   	   	   	   	   	   	   	 : ( (successonly_distWS || successonly_glb_distWS) ? [=]() { return search_tasks_globally_successonly(); }
    	   	   	   	   	   	   	 : [=]() { return search_tasks_globally_glb(); } ));
 #else
 	auto checkIncomingTasks = [=]() { if(received_tasks_from_victim()) { decrement_tasks_in_flight_count(); } };
