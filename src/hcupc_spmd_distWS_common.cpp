@@ -619,51 +619,43 @@ bool serve_pending_distSteal_request_glb() {
 	return success;
 }
 
-inline void mark_myPlace_asIdle_successonly() {
-	out_of_work = true;
-	workAvail[upcxx::global_myrank()] = NOT_WORKING;
-}
-
-inline void mark_myPlace_asIdle_lockedVersion() {
-	LOCK_REQ_SELF;
-	workAvail[upcxx::global_myrank()] = NOT_WORKING;
-	int pendingReq = req_thread[upcxx::global_myrank()];
-	req_thread[upcxx::global_myrank()] = REQ_UNAVAILABLE;
-	UNLOCK_REQ_SELF;
-
-	if(pendingReq >= 0) {
-		// invalidate steal request. this steal request has failed
-		// This will get the thief out of the while loop in steal_from_victim()
-		waitForTaskFromVictim[pendingReq] = false;
-	}
-}
-
-/*
- * When a rank becomes a thief, it would try "N" random
- * victim selections first, followed by setting up lifelines
- *
- * However, in one search cycle it might be possible that it fails
- * in both. In the next search cycles it should never try random selections
- * and hence we return true to hint that random attempts are already done
- */
-inline bool mark_myPlace_asIdle_glb() {
+inline bool mark_myPlace_asIdle() {
+	const int me = upcxx::global_myrank();
 	if(out_of_work) {
-		return (current_glb_max_rand_attempts < glb_max_rand_attempts);
+		if(glb_distWS) {
+			/*
+			 * When a rank becomes a thief, it would try "N" random
+			 * victim selections first, followed by setting up lifelines
+			 *
+			 * However, in one search cycle it might be possible that it fails
+			 * in both. In the next search cycles it should never try random selections
+			 * and hence we return true to hint that random attempts are already done
+			 */
+			return (current_glb_max_rand_attempts < glb_max_rand_attempts);
+		}
+		else {
+			return true;
+		}
 	}
-	else {
-		out_of_work = true;
-		mark_myPlace_asIdle_lockedVersion();
-		return true;
-	}
-}
 
-inline void mark_myPlace_asIdle_baseline() {
-	if(workAvail[upcxx::global_myrank()] == NOT_WORKING && req_thread[upcxx::global_myrank()] == REQ_UNAVAILABLE) {
-		return;
+	out_of_work = true;
+	workAvail[me] = NOT_WORKING;
+
+	if(baseline_distWS || glb_distWS) {
+			LOCK_REQ_SELF;
+			workAvail[me] = NOT_WORKING;
+			int pendingReq = req_thread[me];
+			req_thread[me] = REQ_UNAVAILABLE;
+			UNLOCK_REQ_SELF;
+
+			if(pendingReq >= 0) {
+				// invalidate steal request. this steal request has failed
+				// This will get the thief out of the while loop in steal_from_victim()
+				waitForTaskFromVictim[pendingReq] = false;
+			}
 	}
-	else {
-		mark_myPlace_asIdle_lockedVersion();
-	}
+
+	return true;
 }
 
 static bool waiting_for_returnAsync = false;
@@ -752,7 +744,7 @@ inline bool search_for_hypercube_lifelines() {
 
 bool search_tasks_globally_successonly() {
 	// show this thread as not working
-	mark_myPlace_asIdle_successonly();
+	mark_myPlace_asIdle();
 	// restart victim selection
 	resetVictimArray();
 	return search_for_lifelines();
@@ -760,7 +752,7 @@ bool search_tasks_globally_successonly() {
 
 bool search_tasks_globally_successonly_glb() {
 	// show this thread as not working
-	mark_myPlace_asIdle_successonly();
+	mark_myPlace_asIdle();
 	// restart victim selection
 	resetVictimArray();
 	return search_for_hypercube_lifelines();
@@ -848,7 +840,7 @@ inline bool search_tasks_globally_synchronous(bool glb) {
 
 bool search_tasks_globally_baseline() {
 	// show this thread as not working
-	mark_myPlace_asIdle_baseline();
+	mark_myPlace_asIdle();
 	// restart victim selection
 	resetVictimArray();
 	return search_tasks_globally_synchronous(false);
@@ -856,7 +848,7 @@ bool search_tasks_globally_baseline() {
 
 bool search_tasks_globally_glb() {
 	// show this thread as not working
-	const bool shouldTryRandomSteals = mark_myPlace_asIdle_glb();
+	const bool shouldTryRandomSteals = mark_myPlace_asIdle();
 	// restart victim selection
 	resetVictimArray();
 
