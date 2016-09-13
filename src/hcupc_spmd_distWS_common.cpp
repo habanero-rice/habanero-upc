@@ -136,6 +136,8 @@ upcxx::shared_array<int> asyncsInFlight;
 #define INCREMENT_TASK_IN_FLIGHT_SELF   {(&asyncsInFlightCountLock[upcxx::global_myrank()])->lock(); asyncsInFlight[upcxx::global_myrank()] = asyncsInFlight[upcxx::global_myrank()]+1;   (&asyncsInFlightCountLock[upcxx::global_myrank()])->unlock(); }
 #define DECREMENT_TASK_IN_FLIGHT(i)     {asyncsInFlightCountLock[i].get().lock(); asyncsInFlight[i] = asyncsInFlight[i]-1;      asyncsInFlightCountLock[i].get().unlock(); }
 
+#define ALLOC_ARRAY_SHARED_LOCK(x) { new (x[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank()); }
+
 /*
  * victim uses to this to publish its load info in global address space
  * to help thief in: a) finding correct victim; and b) termination detection.
@@ -397,11 +399,11 @@ void initialize_distws_setOfThieves() {
 
 	asyncsInFlight.init(upcxx::global_ranks());
 	asyncsInFlightCountLock.init(upcxx::global_ranks());
-	new (asyncsInFlightCountLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
+	ALLOC_ARRAY_SHARED_LOCK(asyncsInFlightCountLock);
 
 	req_thread.init(upcxx::global_ranks());
 	reqLock.init(upcxx::global_ranks());
-	new (reqLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
+	ALLOC_ARRAY_SHARED_LOCK(reqLock);
 
 	workAvail[upcxx::global_myrank()] = NOT_WORKING;
 	req_thread[upcxx::global_myrank()] = REQ_UNAVAILABLE;
