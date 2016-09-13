@@ -192,7 +192,7 @@ static void showStats_failedSteals_timeline() {
 	if(app_total_time_estimate) {
 		static counter_t timeline[MAX_TIMESTEPS];
 		for(int i=0; i<MAX_TIMESTEPS; i++) timeline[i] = 0;
-		upcxx::reduce<counter_t>(fail_steals_timeline, timeline, MAX_TIMESTEPS, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
+		upcxx::upcxx_reduce<counter_t>(fail_steals_timeline, timeline, MAX_TIMESTEPS, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
 		if(upcxx::global_myrank() == 0) {
 			printf("============================ FailStealTimeline Statistics Totals ============================\n");
 			counter_t sum_total_failed_steals = 0;
