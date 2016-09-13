@@ -136,8 +136,19 @@ upcxx::shared_array<int> asyncsInFlight;
 #define INCREMENT_TASK_IN_FLIGHT_SELF   {(&asyncsInFlightCountLock[upcxx::global_myrank()])->lock(); asyncsInFlight[upcxx::global_myrank()] = asyncsInFlight[upcxx::global_myrank()]+1;   (&asyncsInFlightCountLock[upcxx::global_myrank()])->unlock(); }
 #define DECREMENT_TASK_IN_FLIGHT(i)     {asyncsInFlightCountLock[i].get().lock(); asyncsInFlight[i] = asyncsInFlight[i]-1;      asyncsInFlightCountLock[i].get().unlock(); }
 
+/*
+ * Latest UPC++ version has a different semantic for shared_lock array allocation and
+ * that is giving very bad performance. Until that is resolved, we are going to use the
+ * old version of UPC++ and corresponding semantic of shared_lock array allocation
+ */
+#if 1
+// The old way to allocate array of shared_lock in UPC++
+#define ALLOC_ARRAY_SHARED_LOCK(x) { new (x[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(); }
+#else
+// The new way to allocate array of shared_lock in UPC++. But this is currently hurting the performance
+// at large node counts (although not with smaller number of nodes)
 #define ALLOC_ARRAY_SHARED_LOCK(x) { new (x[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank()); }
-
+#endif
 /*
  * victim uses to this to publish its load info in global address space
  * to help thief in: a) finding correct victim; and b) termination detection.
