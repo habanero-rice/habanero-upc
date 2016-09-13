@@ -109,7 +109,6 @@ static int* received_tasks_origin;
 static int head_rto=0;	//rto=received tasks origin
 static int tasks_received = 0;
 
-upcxx::shared_array<upcxx::shared_lock> workAvailLock;
 upcxx::shared_array<int> workAvail;
 upcxx::shared_array<bool> waitForTaskFromVictim;
 
@@ -128,11 +127,6 @@ upcxx::shared_array<int> asyncsInFlight;
 
 #define SUCCESS_STEAL 0
 #define FAILED_STEAL 1
-
-#define LOCK_WORK_AVAIL(i)				workAvailLock[i].get().lock()
-#define UNLOCK_WORK_AVAIL(i)			workAvailLock[i].get().unlock()
-#define LOCK_WORK_AVAIL_SELF			(&workAvailLock[upcxx::global_myrank()])->lock()
-#define UNLOCK_WORK_AVAIL_SELF			(&workAvailLock[upcxx::global_myrank()])->unlock()
 
 #define LOCK_REQ(i)			 			reqLock[i].get().lock()
 #define UNLOCK_REQ(i)		 			reqLock[i].get().unlock()
@@ -399,8 +393,6 @@ void initialize_distws_setOfThieves() {
 #endif
 
 	workAvail.init(upcxx::global_ranks());
-	workAvailLock.init(upcxx::global_ranks());
-	new (workAvailLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
 	waitForTaskFromVictim.init(upcxx::global_ranks());
 
 	asyncsInFlight.init(upcxx::global_ranks());
