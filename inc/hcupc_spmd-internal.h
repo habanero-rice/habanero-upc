@@ -75,6 +75,13 @@ void publish_local_load_info();
 void increment_outgoing_tasks();
 void initialize_hcWorker();
 
+/*
+ * OLD_UPCXX is the git revision e9beaec3be61eee8e1a2560efbc93caa03cfcd69 .
+ * Beyond this revision the shared_lock allocation has a new syntax. This new
+ * allocation style is showing bad scalability with HananeroUPC++.
+ */
+#define OLD_UPCXX
+
 const static char* successonly_distWS = getenv("HCPP_DIST_WS_SUCCESSONLY");
 const static char* glb_distWS = successonly_distWS ? NULL : getenv("HCPP_DIST_WS_GLB");
 const static char* successonly_glb_distWS = (successonly_distWS || glb_distWS) ? NULL : getenv("HCPP_DIST_WS_SUCCESSONLY_GLB");

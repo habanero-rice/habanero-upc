@@ -141,7 +141,7 @@ upcxx::shared_array<int> asyncsInFlight;
  * that is giving very bad performance. Until that is resolved, we are going to use the
  * old version of UPC++ and corresponding semantic of shared_lock array allocation
  */
-#if 1
+#ifdef OLD_UPCXX
 // The old way to allocate array of shared_lock in UPC++
 #define ALLOC_ARRAY_SHARED_LOCK(x) { new (x[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(); }
 #else
