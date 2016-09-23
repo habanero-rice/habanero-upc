@@ -68,64 +68,34 @@ inline void resetVictimArray() {
 }
 
 #elif defined(__VS_RAND__)
-int* victims;
-int* victims_bk;
-static int attempts = 1;
-#define NOT_CONTACTED   -1
-#define CONTACTED       -2
 inline void vsinit()
 {
-	srand(upcxx::global_myrank());
-	victims = (int*) malloc(sizeof(int) * (upcxx::global_ranks()));
-	victims_bk = (int*) malloc(sizeof(int) * (upcxx::global_ranks()));
-	for(int i=0; i<upcxx::global_ranks(); i++) {
-		victims[i] = NOT_CONTACTED;
-		victims_bk[i] = NOT_CONTACTED;
-	}
+        srand(upcxx::global_myrank());
 }
 
 inline char * vsdescript(void)
 {
-	return "HabaneroUPC++ Distributed Workstealing (Rand)";
+        return "HabaneroUPC++ Distributed Workstealing (Rand)";
 }
 
-inline int select_randVictim()
+inline int selectvictim()
 {
-	int vic;
-	do {
-		vic = rand()%upcxx::global_ranks();
-	} while(vic == upcxx::global_myrank());
-	return vic;
-}
-
-/*
- * This function when called inside a victim search loop for i=[1,upcxx::global_ranks()-1] number of times,
- * each time it will return a "UNIQUE & RANDOM" victim id. I.e., in each search cycle,
- * a victim already attempted will not be re-attempted. This is to avoid multiple attempts
- * at same victim.
- */
-inline int selectvictim() {
-	while(attempts < upcxx::global_ranks()) {
-		int v = select_randVictim();
-		if(victims[v] == NOT_CONTACTED) {
-			attempts++;
-			victims[v] = CONTACTED;
-			return v;
-		}
-		else {
-			continue;
-		}
-	}
-	assert("VS_RAND: Failed to find victim" && 0);
-	return -1;
+	const int ranks = upcxx::global_ranks();
+        const int me = upcxx::global_myrank();
+	// might attempting same victim multiple times
+        int last = last_steal;
+        do {
+                last = rand()%ranks;
+        } while(last == me);
+        last_steal = last;
+        return last;
 }
 
 inline void initialize_last_stolen() {
+        last_steal = upcxx::global_myrank();
 }
 
 inline void resetVictimArray() {
-	memcpy(victims, victims_bk, upcxx::global_ranks()*sizeof(int));
-	attempts=1;
 }
 
 #elif defined(__VS_DISTANCE__)

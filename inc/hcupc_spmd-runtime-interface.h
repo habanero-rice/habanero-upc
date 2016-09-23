@@ -33,73 +33,80 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *      Author: Vivek Kumar (vivekk@rice.edu)
  */
 
-#include "hclib_cpp.h"
+#include "hcpp.h"
 
 namespace hupcpp {
 
-typedef	hclib::promise_t  promise_t;
-typedef hclib::future_t future_t;
-typedef	hclib::triggered_task_t  triggered_task_t;
+typedef	hcpp::ddf_t  DDF_t;
+typedef	hcpp::ddt_t  DDT_t;
 
-inline promise_t* promise_create() {
-    return new promise_t();
+inline DDF_t* ddf_create() {
+	return hcpp::ddf_create();
 }
 
-inline promise_t ** promise_create_n(size_t nb_promises, int null_terminated) {
-	return hclib::promise_create_n(nb_promises, null_terminated);
+inline DDF_t ** ddf_create_n(size_t nb_ddfs, int null_terminated) {
+	return hcpp::ddf_create_n(nb_ddfs, null_terminated);
 }
 
-inline void promise_free(promise_t * promise) {
-    delete promise;
+inline void ddf_free(DDF_t * ddf) {
+	hcpp::ddf_free(ddf);
 }
 
-inline void * future_get(future_t *future) {
-    return future->get();
+inline void * ddf_get(DDF_t * ddf) {
+	return hcpp::ddf_get(ddf);
 }
 
 #include "hcupc_spmd-asyncAwait.h"
 
 inline int numWorkers() {
-	return hclib::num_workers();
+	return hcpp::numWorkers();
 }
 
 inline int totalPendingLocalAsyncs() {
-	return hclib::total_pending_local_asyncs() - 1;
+	return hcpp::totalPendingLocalAsyncs() - 1;
 }
 
 inline int get_hc_wid() {
-	return hclib::current_worker();
+	return hcpp::get_hc_wid();
 }
 
-inline void register_incoming_async_promise(void* d) {
+inline void register_incoming_async_ddf(void* d) {
 	if(d) {
-		promise_t * promise = (promise_t *) d;
+		DDF_t * ddf = (DDF_t *) d;
 		int* tmp = new int;
 		*tmp = 10;
-        promise->put(tmp);
+		hcpp::ddf_put(ddf, (void*)tmp);
 	}
 }
 
-inline void finish(std::function<void()> lambda) {
-    hclib::finish(lambda);
+inline void start_finish() {
+	hcpp::start_finish();
+}
+
+inline void end_finish() {
+	hcpp::end_finish();
 }
 
 template <typename T>
-inline void async_comm(T lambda) {
-	hclib::async_comm<T>(lambda);
+inline void asyncComm(T lambda) {
+	hcpp::asyncComm<T>(lambda);
 }
 
 template <typename T>
 inline void async(T lambda) {
-	hclib::async<T>(lambda);
+	hcpp::async<T>(lambda);
 }
 
 #ifdef DIST_WS
 template <typename T>
 inline void hcupc_asyncAny(T lambda) {
-	hclib::asyncAny<T>(lambda);
+	hcpp::asyncAny<T>(lambda);
 }
 #endif
+
+inline void finish(std::function<void()> lambda) {
+	hcpp::finish(lambda);
+}
 
 inline void* hcupc_malloc(size_t nbytes) {
 	return HC_MALLOC(nbytes);
@@ -118,16 +125,16 @@ typedef struct _loop_domain_t {
 
 template <typename T>
 inline void forasync1D(loop_domain_t* loop, T lambda, int mode=FORASYNC_MODE_RECURSIVE) {
-	hclib::forasync1D_internal<T>((hclib::loop_domain_t*)loop, lambda, mode, ANY_PLACE, NO_FUTURE);
+	hcpp::forasync1D_internal<T>((hcpp::loop_domain_t*)loop, lambda, mode);
 }
 
 template <typename T>
 inline void forasync2D(loop_domain_t* loop, T lambda, int mode=FORASYNC_MODE_RECURSIVE) {
-	hclib::forasync2D_internal<T>((hclib::loop_domain_t*)loop, lambda, mode, ANY_PLACE, NO_FUTURE);
+	hcpp::forasync2D_internal<T>((hcpp::loop_domain_t*)loop, lambda, mode);
 }
 
 template <typename T>
 inline void forasync3D(loop_domain_t* loop, T lambda, int mode=FORASYNC_MODE_RECURSIVE) {
-	hclib::forasync3D_internal<T>((hclib::loop_domain_t*)loop, lambda, mode, ANY_PLACE, NO_FUTURE);
+	hcpp::forasync3D_internal<T>((hcpp::loop_domain_t*)loop, lambda, mode);
 }
 }

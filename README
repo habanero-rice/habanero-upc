@@ -4,9 +4,10 @@ HABANERO-UPC LIBRARY INSTALLATION PROCEDURE
 
 1a) Checkout Habanero-C++ library (Do not build, just checkout):
 
-git clone https://github.com/habanero-rice/hcpp.git
+git clone https://github.com/habanero-rice/hclib.git
+cd hclib; git checkout hcupc
+  	NOTE: HabaneroUPC++ is not supported currently with master branch of hclib
 
-  	NOTE: HabaneroUPC++ is not supported currently with the OCR backend of Habanero-C++.
 1b) Checkout HabaneroUPC++ library
 
 git clone https://github.com/habanero-rice/habanero-upc.git
@@ -36,7 +37,7 @@ EXECUTING TESTCASES
 =============================================
 
 1) Set the intra-place workers correctly:
-	export HCLIB_WORKERS=N
+	export HCPP_WORKERS=N
 
 2) For using HPT in Habanero-C++, use the README.md in Habanero-C++ repository
 

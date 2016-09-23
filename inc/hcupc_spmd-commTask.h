@@ -36,7 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace hupcpp {
 /*
- * The comm_async_task structure is similar to hclib::crt_async_task, but redefining locally
+ * The comm_async_task structure is similar to hcpp::crt_async_task, but redefining locally
  * here to achieve portability across OCR and CRT
  */
 
@@ -161,20 +161,20 @@ inline void asyncAt(int p, T lambda) {
 	allocate_comm_task<decltype(lambda2)>(lambda2);
 }
 
-inline void async_after_async_copy(void* promise) {
+inline void async_after_asyncCopy(void* ddf) {
 	queue_source_place_of_remoteTask(upcxx::global_myrank());
-	if(promise) {
-		register_incoming_async_promise(promise);
+	if(ddf) {
+		register_incoming_async_ddf(ddf);
 	}
 }
 
 template <typename T>
-inline void async_copy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> dst, size_t count, promise_t* promise=NULL) {
+inline void asyncCopy(upcxx::global_ptr<T> src, upcxx::global_ptr<T> dst, size_t count, DDF_t* ddf=NULL) {
 	auto lambda = [=]() {
 		upcxx::event* e = get_upcxx_event();
 		HASSERT(e != NULL);
 		upcxx::async_copy(src, dst, count, e);
-		upcxx::async_after(upcxx::global_myrank(), e, NULL)(async_after_async_copy, (void*)promise);
+		upcxx::async_after(upcxx::global_myrank(), e, NULL)(async_after_asyncCopy, (void*)ddf);
 	};
 	allocate_comm_task<decltype(lambda)>(lambda);
 }
@@ -186,15 +186,15 @@ inline void asyncAny(T lambda) {
 	hcupc_asyncAny<T>(lambda);
 }
 
-inline void unwrap_asyncAny_task(hclib::remoteAsyncAny_task task) {
+inline void unwrap_asyncAny_task(hcpp::remoteAsyncAny_task task) {
 	(*task._fp)(task._args);
 }
 
-inline void unwrap_n_asyncAny_tasks(const hclib::remoteAsyncAny_task* tasks, int count) {
+inline void unwrap_n_asyncAny_tasks(const hcpp::remoteAsyncAny_task* tasks, int count) {
 	for(int j=0; j<count; j++) {
-		hclib::remoteAsyncAny_task tmp;
-		memcpy((void*)&tmp, (void*)&tasks[j], sizeof(hclib::remoteAsyncAny_task));
-		hclib::async([tmp]() {
+		hcpp::remoteAsyncAny_task tmp;
+		memcpy((void*)&tmp, (void*)&tasks[j], sizeof(hcpp::remoteAsyncAny_task));
+		hcpp::async([tmp]() {
 			unwrap_asyncAny_task(tmp);
 		});
 	}

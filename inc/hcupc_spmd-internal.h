@@ -40,7 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include<unistd.h>
 #include <sys/time.h>
 
-// never declare using namespace hclib ... code will hang
+// never declare using namespace hcpp ... code will hang
 using namespace upcxx;
 using namespace std;
 
@@ -57,9 +57,12 @@ typedef unsigned long long counter_t;
 void initialize_distws_setOfThieves();
 int detectWork();
 int total_asyncs_inFlight();
-bool serve_pending_distSteal_request();
+bool serve_pending_distSteal_request_successonly();
+bool serve_pending_distSteal_request_glb();
 bool serve_pending_distSteal_request_baseline();
-bool search_tasks_globally();
+bool search_tasks_globally_successonly();
+bool search_tasks_globally_successonly_glb();
+bool search_tasks_globally_glb();
 bool search_tasks_globally_baseline();
 void decrement_tasks_in_flight_count();
 bool received_tasks_from_victim();
@@ -72,15 +75,26 @@ void publish_local_load_info();
 void increment_outgoing_tasks();
 void initialize_hcWorker();
 
+/*
+ * OLD_UPCXX is the git revision e9beaec3be61eee8e1a2560efbc93caa03cfcd69 .
+ * Beyond this revision the shared_lock allocation has a new syntax. This new
+ * allocation style is showing bad scalability with HananeroUPC++.
+ */
+#define OLD_UPCXX
+
+const static char* successonly_distWS = getenv("HCPP_DIST_WS_SUCCESSONLY");
+const static char* glb_distWS = successonly_distWS ? NULL : getenv("HCPP_DIST_WS_GLB");
+const static char* successonly_glb_distWS = (successonly_distWS || glb_distWS) ? NULL : getenv("HCPP_DIST_WS_SUCCESSONLY_GLB");
+const static char* baseline_distWS =  (successonly_distWS || glb_distWS || successonly_glb_distWS) ? NULL : "true";
+
 // statistics related
-void get_totalAsyncAny_stats(counter_t *tasksStolen, counter_t* successSteals, counter_t* failSteals, counter_t* recvStealReqsWhenFree, counter_t*, counter_t*);
 void get_steal_stats(int* s1, int* s2, int* s3, int* s4, int* s4P);
 void record_failedSteal_timeline();
 void contacted_victims_statistics(int victims_contacted);
-void check_cyclicSteals(int v, int head, int tail, int* queued_thieves);
+bool check_cyclicSteals(int v, int head, int tail, int* queued_thieves);
 void check_if_out_of_work_stats(bool out_of_work);
 void stats_initTimelineEvents();
-void success_steals_stats();
+void success_steals_stats(bool);
 void total_asyncany_rdma_probes_stats();
 void start_finish_spmd_timer();
 void end_finish_spmd_timer();

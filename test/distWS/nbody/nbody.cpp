@@ -25,10 +25,10 @@ static float accy[NUMBODIES];
 static float accz[NUMBODIES];
 
 #ifdef VERIFY_SHORT
-#define MAX_HCLIB_WORKERS 24
+#define MAX_HCPP_WORKERS 24
 /* For stats generation: */
 typedef unsigned long long counter_t;
-static counter_t TOTAL_COUNTS[MAX_HCLIB_WORKERS];
+static counter_t TOTAL_COUNTS[MAX_HCPP_WORKERS];
 #define COUNT_OPS		{ TOTAL_COUNTS[hupcpp::get_hc_wid()]++; }
 #else
 #define COUNT_OPS
@@ -101,7 +101,7 @@ int main(int argc,char **argv) {
 	long start = get_usecs();
 	for(int time_steps=0;time_steps<MAX_STEPS;time_steps++) {
 		hupcpp::finish_spmd([=]() {
-			if(MYTHREAD ==0) {
+			if(upcxx::global_myrank() ==0) {
 				calculate_forces();
 			}
 		});
@@ -110,12 +110,12 @@ int main(int argc,char **argv) {
  	double dur = ((double)(end-start))/1000000;
 #ifdef VERIFY_SHORT
 	counter_t sum = 0;
-	for(int i=0; i<MAX_HCLIB_WORKERS; i++) {
+	for(int i=0; i<MAX_HCPP_WORKERS; i++) {
 		sum+=TOTAL_COUNTS[i];
 	}
 	counter_t total_sum;
-	upcxx::upcxx_reduce<counter_t>(&sum, &total_sum, 1, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
-	if(MYTHREAD == 0) {
+	upcxx::reduce<counter_t>(&sum, &total_sum, 1, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
+	if(upcxx::global_myrank() == 0) {
 		const counter_t expected = NUMBODIES * MAX_STEPS;
 		const char* res = expected == total_sum ? "PASSED" : "FAILED";
 		printf("Test %s, Time = %0.3f\n",res,dur);
@@ -129,7 +129,7 @@ int main(int argc,char **argv) {
 	upcxx::upcxx_reduce<float>(accy, accy_all, NUMBODIES, 0, UPCXX_SUM, UPCXX_FLOAT);
 	upcxx::upcxx_reduce<float>(accz, accz_all, NUMBODIES, 0, UPCXX_SUM, UPCXX_FLOAT);
 
-	if(MYTHREAD ==0) {
+	if(upcxx::global_myrank() ==0) {
 		printf("0: Computation done\n");
 		printf("Test Passed=%d\n",verify_result(argv[4],accx_all));
 	}

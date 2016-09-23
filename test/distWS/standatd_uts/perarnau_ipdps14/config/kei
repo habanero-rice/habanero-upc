@@ -1,0 +1,67 @@
+# Specify which targets should be built when a "make all"
+# is performed.  The default is only uts-seq.
+
+TARGETS_ALL = uts-mpi-ws uts-mpi-ws-rand uts-mpi-ws-gslrd uts-mpi-ws-half\
+uts-mpi-ws-half-rand uts-mpi-ws-half-gslrd mpi-coords\
+uts-mpi-ws-nt uts-mpi-ws-rand-nt uts-mpi-ws-gslrd-nt uts-mpi-ws-half-nt uts-mpi-ws-half-rand-nt uts-mpi-ws-half-gslrd-nt
+
+# -------------------------------------
+# C Compiler 
+# -------------------------------------
+CC = fccpx
+CC_OPTS = -O3
+LD_OPTS = -lm
+
+# -------------------------------------
+# MPI Compiler 
+# -------------------------------------
+MPICC = mpifccpx
+MPICC_OPTS = -O3
+MPILD_OPTS = -lm
+
+
+# -------------------------------------
+# UPC Compiler 
+# -------------------------------------
+UPCC = upcc
+UPCC_OPTS = -network=mpi 
+UPCLD_OPTS = 
+
+
+# -------------------------------------
+# OPENMP Compiler 
+# -------------------------------------
+OMPCC = fccpx
+OMPCC_OPTS = -Kopenmp
+OMPLD_OPTS = -lm -Kopenmp
+
+
+# -------------------------------------
+# SHMEM Compiler 
+# -------------------------------------
+SHMCC = false
+SHMCC_OPTS = 
+SHMLD_OPTS =
+
+# -------------------------------------
+# GPSHMEM Compiler 
+# -------------------------------------
+GPSHMCC = false
+GPSHMCC_OPTS =
+GPSHMLD_OPTS =
+
+
+# -------------------------------------
+# Optional Build Flags:
+# -------------------------------------
+### Include Chunk tracking debug messages
+#FLAGS += -DCTRK
+#FLAGS += -DTRACE
+
+# -------------------------------------
+# Select random number generator
+# -------------------------------------
+
+#RNG=Devine
+#RNG=ALFG
+RNG=BRG

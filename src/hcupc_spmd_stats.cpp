@@ -37,31 +37,31 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * Following types of statistics are available:
  *
  * 1) Timeline of failed steals:
- * 		- This is available only in the baseline implementation of disWS (env variable HCLIB_DIST_WS_BASELINE = 1)
+ * 		- This is available only in the baseline implementation of disWS (env variable HCPP_DIST_WS_BASELINE = 1)
  * 		- For a given place count, first run the benchmark couple of times to estimate the total execution time
  * 		- Then to estimate the total % of failed steals during 20 timesteps of total program execution rerun the
- * 		  benchmark with the following setting: export HCLIB_APP_EXEC_TIME=<benchmark execution time in seconds>
+ * 		  benchmark with the following setting: export HCPP_APP_EXEC_TIME=<benchmark execution time in seconds>
  * 		- Total number of timesteps can be changed using the macro MAX_TIMESTEPS
  *
  * 	2) Measurement of total idle time (search + termination detection time)
- * 	    - Rebuild hclib after uncommenting this line in file hclib/inc/hclib-timer.h
+ * 	    - Rebuild hcpp after uncommenting this line in file hcpp/inc/hcpp-timer.h
  * 	    	#define _TIMER_ON_
- * 	    - Rebuild hclib (cd hclib/compileTree; make clean; make install)
+ * 	    - Rebuild hcpp (cd hcpp/compileTree; make clean; make install)
  *
- *  3) Total inter-place message exchanges for distributed work-stealing: (assume total_success_steals = total inter-place
+ *  3) Total inter-place message exchanges for distributed work-stealing: (assume total_success_synchronous_steals = total inter-place
  *  		successful steals; total_failed_steals = total inter-place failed Steals)
  *  		(Note: Check metod search_tasks_globally)
  *  	a) SuccessOnlyWS:
- *  		= Total RDMA probes + (2 * total_success_steals)
- *  		= (total_asyncany_rdma_probes) + (2 * total_success_steals)
+ *  		= Total RDMA probes + (2 * total_success_synchronous_steals)
+ *  		= (total_asyncany_rdma_probes) + (2 * total_success_synchronous_steals)
  *  	b) BaselineWS: (Note: Check method findwork_baseline)
- *  		= Total RDMA probes + ( (Total Locks + Total Unlocks)*(total_success_steals+total_failed_steals) )
- *  						+ (check queuing request * (total_success_steals+total_failed_steals) )
- *  						+ (queue request * total_success_steals)
- *  		= (total_asyncany_rdma_probes) + ( 2*(total_success_steals+total_failed_steals) )
- *  						+ (total_success_steals+total_failed_steals)
- *  						+ total_success_steals
- *  		= total_asyncany_rdma_probes + 4*total_success_steals + 3*total_failed_steals
+ *  		= Total RDMA probes + ( (Total Locks + Total Unlocks)*(total_success_synchronous_steals+total_failed_steals) )
+ *  						+ (check queuing request * (total_success_synchronous_steals+total_failed_steals) )
+ *  						+ (queue request * total_success_synchronous_steals)
+ *  		= (total_asyncany_rdma_probes) + ( 2*(total_success_synchronous_steals+total_failed_steals) )
+ *  						+ (total_success_synchronous_steals+total_failed_steals)
+ *  						+ total_success_synchronous_steals
+ *  		= total_asyncany_rdma_probes + 4*total_success_synchronous_steals + 3*total_failed_steals
  * 	3) Total number of inter-place failed steals, inter-place steals, inter-place tasks send, inter-place RDMA probes, total intra-place steals,
  * 		total intra-place pushes, number of victims contacted in each search phase, etc, are also provided
  *
@@ -79,7 +79,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace hupcpp {
 
 
-counter_t	total_success_steals=0;
+counter_t	total_success_synchronous_steals=0;
+counter_t   total_success_asynchronous_steals=0;
 counter_t	total_tasks_stolen=0;
 counter_t	total_failed_steals=0;
 counter_t	total_received_stealRequests_when_idle=0;
@@ -113,26 +114,28 @@ void end_finish_spmd_timer() {
 /*
  * only for statistics
  */
-void check_cyclicSteals(int v, int head, int tail, int* queued_thieves) {
+bool check_cyclicSteals(int v, int head, int tail, int* queued_thieves) {
 	while(head!=tail) {
-		if(v==queued_thieves[++head % upcxx::global_ranks()]) {
-			total_cyclic_steals++;
-			return;
-		}
-	}
+                if(v==queued_thieves[++head % upcxx::global_ranks()]) {
+                        total_cyclic_steals++;
+                        return true;
+                }
+        }
+        return false;
 }
 
 void check_if_out_of_work_stats(bool out_of_work) {
 	if(out_of_work) total_received_stealRequests_when_idle++;
 }
 
-void success_steals_stats() {
-	total_success_steals++;
+void success_steals_stats(bool baselineWS) {
+	if(baselineWS) total_success_synchronous_steals++;
+	else total_success_asynchronous_steals++;
 }
 
 // ----------------------STATISTICS FOR FAILED STEALS TIMELINE -----------------------------
 
-const static char* app_total_time_estimate = getenv("HCLIB_APP_EXEC_TIME");
+const static char* app_total_time_estimate = getenv("HCPP_APP_EXEC_TIME");
 // App execution time divided into total of 20 timesteps
 #define MAX_TIMESTEPS	20
 static double app_timesteps[MAX_TIMESTEPS];
@@ -155,7 +158,7 @@ void stats_initTimelineEvents() {
 			fail_steals_timeline[i] = 0;
 		}
 		if(upcxx::global_myrank() == 0) {
-			printf(">>> HCLIB_APP_EXEC_TIME\t\t= %f seconds\n",app_tTotal);
+			printf(">>> HCPP_APP_EXEC_TIME\t\t= %f seconds\n",app_tTotal);
 		}
 	}
 }
@@ -189,7 +192,11 @@ static void showStats_failedSteals_timeline() {
 	if(app_total_time_estimate) {
 		static counter_t timeline[MAX_TIMESTEPS];
 		for(int i=0; i<MAX_TIMESTEPS; i++) timeline[i] = 0;
+#ifdef OLD_UPCXX
+		upcxx::upcxx_reduce<counter_t>(fail_steals_timeline, timeline, MAX_TIMESTEPS, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
+#else
 		upcxx::reduce<counter_t>(fail_steals_timeline, timeline, MAX_TIMESTEPS, 0, UPCXX_SUM, UPCXX_ULONG_LONG);
+#endif
 		if(upcxx::global_myrank() == 0) {
 			printf("============================ FailStealTimeline Statistics Totals ============================\n");
 			counter_t sum_total_failed_steals = 0;
@@ -239,9 +246,10 @@ void contacted_victims_statistics(int victims_contacted) {
 /*
  * only for statistics
  */
-void get_totalAsyncAny_stats(counter_t *tasksStolen, counter_t* successSteals, counter_t* failSteals, counter_t* recvStealReqsWhenFree, counter_t* cyclic_steals, counter_t* rdma_probes) {
+inline void get_totalAsyncAny_stats(counter_t *tasksStolen, counter_t* successAsyncSteals, counter_t* successSyncSteals, counter_t* failSteals, counter_t* recvStealReqsWhenFree, counter_t* cyclic_steals, counter_t* rdma_probes) {
 	*tasksStolen = total_tasks_stolen;
-	*successSteals = total_success_steals;
+	*successSyncSteals = total_success_synchronous_steals;
+	*successAsyncSteals = total_success_asynchronous_steals;
 	*failSteals = total_failed_steals;
 	*recvStealReqsWhenFree = total_received_stealRequests_when_idle;
 	*cyclic_steals = total_cyclic_steals;
@@ -249,7 +257,8 @@ void get_totalAsyncAny_stats(counter_t *tasksStolen, counter_t* successSteals, c
 	total_cyclic_steals = 0;
 	total_asyncany_rdma_probes = 0;
 	total_failed_steals = 0;
-	total_success_steals = 0;
+	total_success_synchronous_steals = 0;
+	total_success_asynchronous_steals=0;
 	total_tasks_stolen = 0;
 	total_received_stealRequests_when_idle = 0;
 }
@@ -294,7 +303,7 @@ static void runtime_statistics(double duration) {
 	steal_ind_myPlace.init(upcxx::global_ranks());
 
 	int c1, c2, c3;
-	// hclib::gather_comm_worker_stats(&c1, &c2, &c3);
+	hcpp::gather_commWorker_Stats(&c1, &c2, &c3);
 
 	push_outd_myPlace[upcxx::global_myrank()] = c1;
 	push_ind_myPlace[upcxx::global_myrank()] = c2;
@@ -302,29 +311,32 @@ static void runtime_statistics(double duration) {
 #endif
 
 	shared_array<counter_t> tasks_sendto_remotePlace;
-	shared_array<counter_t> total_dist_successSteals;
+	shared_array<counter_t> total_dist_success_async_steals;
+	shared_array<counter_t> total_dist_success_sync_steals;
 	shared_array<counter_t> total_dist_failedSteals;
 	shared_array<counter_t> total_recvStealReqsWhenFree;
 	shared_array<counter_t> total_cyclic_steals;
 	shared_array<counter_t> total_rdma_probes;
 
 	tasks_sendto_remotePlace.init(upcxx::global_ranks());
-	total_dist_successSteals.init(upcxx::global_ranks());
+	total_dist_success_async_steals.init(upcxx::global_ranks());
+	total_dist_success_sync_steals.init(upcxx::global_ranks());
 	total_dist_failedSteals.init(upcxx::global_ranks());
 	total_recvStealReqsWhenFree.init(upcxx::global_ranks());
 	total_cyclic_steals.init(upcxx::global_ranks());
 	total_rdma_probes.init(upcxx::global_ranks());
 
-	counter_t c4, c5, c6, c7, c8, c9;
+	counter_t c4, c5a, c5b, c6, c7, c8, c9;
 
-	get_totalAsyncAny_stats(&c4, &c5, &c6, &c7, &c8, &c9);
+	get_totalAsyncAny_stats(&c4, &c5a, &c5b, &c6, &c7, &c8, &c9);
 
 	tasks_sendto_remotePlace[upcxx::global_myrank()] = c4;
-	total_dist_successSteals[global_myrank()] = c5;
-	total_dist_failedSteals[global_myrank()] = c6;
-	total_recvStealReqsWhenFree[global_myrank()] = c7;
-	total_cyclic_steals[global_myrank()] = c8;
-	total_rdma_probes[global_myrank()] = c9;
+	total_dist_success_async_steals[upcxx::global_myrank()] = c5a;
+	total_dist_success_sync_steals[upcxx::global_myrank()] = c5b;
+	total_dist_failedSteals[upcxx::global_myrank()] = c6;
+	total_recvStealReqsWhenFree[upcxx::global_myrank()] = c7;
+	total_cyclic_steals[upcxx::global_myrank()] = c8;
+	total_rdma_probes[upcxx::global_myrank()] = c9;
 
 	int s1=0, s2=0, s3=0, s4=0, s4P=0;
 	get_steal_stats(&s1, &s2, &s3, &s4, &s4P);
@@ -341,11 +353,11 @@ static void runtime_statistics(double duration) {
 	total_steal_4.init(upcxx::global_ranks());
 	total_steal_4P.init(upcxx::global_ranks());
 
-	total_steal_1[global_myrank()] = s1;
-	total_steal_2[global_myrank()] = s2;
-	total_steal_3[global_myrank()] = s3;
-	total_steal_4[global_myrank()] = s4;
-	total_steal_4P[global_myrank()] = s4P;
+	total_steal_1[upcxx::global_myrank()] = s1;
+	total_steal_2[upcxx::global_myrank()] = s2;
+	total_steal_3[upcxx::global_myrank()] = s3;
+	total_steal_4[upcxx::global_myrank()] = s4;
+	total_steal_4P[upcxx::global_myrank()] = s4P;
 
 	shared_array<double> tWork_i;
 	shared_array<double> tOvh_i;
@@ -355,18 +367,18 @@ static void runtime_statistics(double duration) {
 	tOvh_i.init(upcxx::global_ranks());
 	tSearch_i.init(upcxx::global_ranks());
 	double tWork, tOvh, tSearch;
-	// hclib::get_avg_time(&tWork, &tOvh, &tSearch);
-	tWork_i[global_myrank()] = tWork;
-	tOvh_i[global_myrank()] = tOvh;
-	tSearch_i[global_myrank()] = tSearch;
+	hcpp::hcpp_getAvgTime (&tWork, &tOvh, &tSearch);
+	tWork_i[upcxx::global_myrank()] = tWork;
+	tOvh_i[upcxx::global_myrank()] = tOvh;
+	tSearch_i[upcxx::global_myrank()] = tSearch;
 
 	hupcpp::barrier();
 #ifdef DIST_WS
-	if(global_myrank() == 0) {
+	if(upcxx::global_myrank() == 0) {
 #ifdef HC_COMM_WORKER_STATS
 		int t1=0, t2=0, t3=0;
 #endif
-		counter_t t4=0, t5=0, t6=0, t7=0, t7b=0, t7c=0;
+		counter_t t4=0, t5a=0, t5b=0, t6=0, t7=0, t7b=0, t7c=0;
 		int t8=0,t9=0,t10=0,t11=0,t12=0;
 		double t13=0, t14=0, t15=0;
 		for(int i=0; i<upcxx::global_ranks(); i++) {
@@ -376,7 +388,8 @@ static void runtime_statistics(double duration) {
 			t3 += steal_ind_myPlace[i];
 #endif
 			t4 += tasks_sendto_remotePlace[i];
-			t5 += total_dist_successSteals[i];
+			t5a += total_dist_success_async_steals[i];
+			t5b += total_dist_success_sync_steals[i];
 			t6 += total_dist_failedSteals[i];
 			t7 += total_recvStealReqsWhenFree[i];
 			t7b += total_cyclic_steals[i];
@@ -399,17 +412,17 @@ static void runtime_statistics(double duration) {
 
 		printf("============================ MMTk Statistics Totals ============================\n");
 #ifdef HC_COMM_WORKER_STATS
-		printf("time.mu\ttimeFinishSPMD\ttotalPushOutDeq\ttotalPushInDeq\ttotalStealsInDeq\ttotalTasksSendToRemote\ttotalSuccessDistSteals\ttotalFailedDistSteals\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes\ttWork\ttOverhead\ttSearch");
+		printf("time.mu\ttimeFinishSPMD\ttotalPushOutDeq\ttotalPushInDeq\ttotalStealsInDeq\ttotalTasksSendToRemote\ttotalSuccessAsyncDistSteals\ttotalSuccessSyncDistSteals\ttotalFailedDistSteals\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes\ttWork\ttOverhead\ttSearch");
 		printf("\tS1\tS2\tS3\tS4\tS4Plus\n");
 
-		printf("%.3f\t%.3f\t%d\t%d\t%d\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%.3f\t%.3f\t%.5f",duration,finish_spmd_duration,t1,t2, t3, t4, t5, t6, t7, t7b, t7c, t13, t14, t15);
+		printf("%.3f\t%.3f\t%d\t%d\t%d\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%.3f\t%.3f\t%.5f",duration,finish_spmd_duration,t1,t2, t3, t4, t5a, t5b, t6, t7, t7b, t7c, t13, t14, t15);
 		printf("\t%d\t%d\t%d\t%d\t%d\n",t8,t9,t10,t11,t12);
 
 #else
-		printf("time.mu\ttimeFinishSPMD\ttotalTasksSendToRemote\ttotalSuccessDistSteals\ttotalFailedDistSteal\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes");
+		printf("time.mu\ttimeFinishSPMD\ttotalTasksSendToRemote\ttotalSuccessAsyncDistSteals\ttotalSuccessSyncDistSteals\ttotalFailedDistSteal\ttotalIncomingStealReqsWhenIdle\ttotalCyclicSteals\ttotalRDMAasyncAnyProbes");
 		printf("\tS1\tS2\tS3\tS4\tS4Plus\n");
 
-		printf("%.3f\t%.3f\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu",duration,finish_spmd_duration,t4, t5, t6, t7, t7b, t7c);
+		printf("%.3f\t%.3f\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu",duration,finish_spmd_duration,t4, t5a, t5b, t6, t7, t7b, t7c);
 		printf("\t%d\t%d\t%d\t%d\t%d\n",t8,t9,t10,t11,t12);
 
 #endif
@@ -417,11 +430,11 @@ static void runtime_statistics(double duration) {
 		printf("------------------------------ End MMTk Statistics -----------------------------\n");
 		printf("===== TEST PASSED in %.3f msec =====\n",duration);
 	}
-	if(getenv("HCLIB_DIST_WS_BASELINE")) {
+	if(getenv("HCPP_DIST_WS_BASELINE")) {
 		showStats_failedSteals_timeline();
 	}
 #else // !DIST_WS
-	if(global_myrank() == 0) {
+	if(upcxx::global_myrank() == 0) {
 #ifdef HC_COMM_WORKER_STATS
 		int t1=0, t2=0, t3=0;
 #endif
@@ -454,14 +467,14 @@ static void runtime_statistics(double duration) {
 }
 
 void showStatsHeader() {
-	if(global_myrank() == 0) {
+	if(upcxx::global_myrank() == 0) {
 		cout << endl;
 		cout << "-----" << endl;
 		cout << "mkdir timedrun fake" << endl;
 		cout << endl;
 	}
-	 initialize_hcWorker();
-	if(global_myrank() == 0) {
+	initialize_hcWorker();
+	if(upcxx::global_myrank() == 0) {
 		cout << endl;
 		cout << "-----" << endl;
 	}
@@ -471,7 +484,7 @@ void showStatsHeader() {
 void showStatsFooter() {
 	HASSERT(benchmark_start_time_stats != 0);
 	double dur = (((double)(mysecond()-benchmark_start_time_stats))/1000000) * 1000; //msec
-	if(global_myrank() == 0) {
+	if(upcxx::global_myrank() == 0) {
 		print_topology_information();
 	}
 	runtime_statistics(dur);

@@ -49,7 +49,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * removes inter-place failed steals, reduces idle time and also reduces total inter-place message exchanges
  *
  * To use BaselineWS set this environment varialbe before launching the runtime:
- * export HCLIB_DIST_WS_BASELINE=1
+ * export HCPP_DIST_WS_BASELINE=1
  * SuccessOnlyWS is the default implementation
  */
 
@@ -65,7 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 	 	__VS_DIST_HPT__ :	HabaneroUPC++ Distributed Workstealing (Distributed HPT)
  *
  */
-#define __VS_RR__
+#define __VS_RAND__
 
 /*
  * ------- Runtime control flags -------- End
@@ -77,7 +77,7 @@ static int last_steal;	// place id of last victim
 
 #include "hcupc_spmd-random.h"
 
-//#define HCLIB_DEBUG
+//#define HCPP_DEBUG
 
 /*
  * End ------- Runtime control flags --------
@@ -85,9 +85,16 @@ static int last_steal;	// place id of last victim
 
 namespace hupcpp {
 
+const static char* cyclic_steals_not_allowed = getenv("HCPP_CANCEL_CYCLIC_STEALS");
 extern volatile int idle_workers;	// counts computation workers only
 
 double totalTasksStolenInOneShot = -1; // may be fraction as well (getenv)
+
+/*
+ * GLB Specific
+ */
+int glb_max_rand_attempts = 1;
+int current_glb_max_rand_attempts = 0;
 
 static int* contacted_victims;
 static int* queued_thieves;
@@ -102,7 +109,6 @@ static int* received_tasks_origin;
 static int head_rto=0;	//rto=received tasks origin
 static int tasks_received = 0;
 
-upcxx::shared_array<upcxx::shared_lock> workAvailLock;
 upcxx::shared_array<int> workAvail;
 upcxx::shared_array<bool> waitForTaskFromVictim;
 
@@ -112,15 +118,15 @@ upcxx::shared_array<int> req_thread;
 upcxx::shared_array<upcxx::shared_lock> asyncsInFlightCountLock;
 upcxx::shared_array<int> asyncsInFlight;
 
+#define MAX_ASYNC_ANY_TASKS_SHIPMENT 5
+
 #define REQ_AVAILABLE	-1	 /* req_thread */
 #define REQ_UNAVAILABLE  -2  /* req_thread */
 #define NOT_WORKING      -1  /* work_available */
 #define NONE_WORKING     -2  /* result of probe sequence */
 
-#define LOCK_WORK_AVAIL(i)				workAvailLock[i].get().lock()
-#define UNLOCK_WORK_AVAIL(i)			workAvailLock[i].get().unlock()
-#define LOCK_WORK_AVAIL_SELF			(&workAvailLock[upcxx::global_myrank()])->lock()
-#define UNLOCK_WORK_AVAIL_SELF			(&workAvailLock[upcxx::global_myrank()])->unlock()
+#define SUCCESS_STEAL 0
+#define FAILED_STEAL 1
 
 #define LOCK_REQ(i)			 			reqLock[i].get().lock()
 #define UNLOCK_REQ(i)		 			reqLock[i].get().unlock()
@@ -131,17 +137,56 @@ upcxx::shared_array<int> asyncsInFlight;
 #define DECREMENT_TASK_IN_FLIGHT(i)     {asyncsInFlightCountLock[i].get().lock(); asyncsInFlight[i] = asyncsInFlight[i]-1;      asyncsInFlightCountLock[i].get().unlock(); }
 
 /*
- * Used only at the source
+ * Latest UPC++ version has a different semantic for shared_lock array allocation and
+ * that is giving very bad performance. Until that is resolved, we are going to use the
+ * old version of UPC++ and corresponding semantic of shared_lock array allocation
  */
-void increment_task_in_flight_self() {
-	(&asyncsInFlightCountLock[upcxx::global_myrank()])->lock();
-	asyncsInFlight[upcxx::global_myrank()] = asyncsInFlight[upcxx::global_myrank()]+1;
-	(&asyncsInFlightCountLock[upcxx::global_myrank()])->unlock();
+#ifdef OLD_UPCXX
+// The old way to allocate array of shared_lock in UPC++
+#define ALLOC_ARRAY_SHARED_LOCK(x) { new (x[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(); }
+#else
+// The new way to allocate array of shared_lock in UPC++. But this is currently hurting the performance
+// at large node counts (although not with smaller number of nodes)
+#define ALLOC_ARRAY_SHARED_LOCK(x) { new (x[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank()); }
+#endif
+/*
+ * victim uses to this to publish its load info in global address space
+ * to help thief in: a) finding correct victim; and b) termination detection.
+ */
+void publish_local_load_info() {
+#ifdef DIST_WS
+	const int total_aany = hcpp::totalAsyncAnyAvailable();
+	workAvail[upcxx::global_myrank()] = (total_aany>0) ? total_aany : totalPendingLocalAsyncs();
+#else
+	workAvail[upcxx::global_myrank()] = totalPendingLocalAsyncs();
+#endif
+}
+
+inline void mark_myPlace_asBusy() {
+	const int me = upcxx::global_myrank();
+	// don't need to do anything if I've already declared that I'm busy
+	if(!out_of_work) return;
+
+	out_of_work = false;
+	publish_local_load_info();
+
+	if(baseline_distWS || glb_distWS) {
+		current_glb_max_rand_attempts = 0; // glb only
+		LOCK_REQ_SELF;
+		assert(req_thread[me] == REQ_UNAVAILABLE);
+		req_thread[me] = REQ_AVAILABLE;
+		UNLOCK_REQ_SELF;
+	}
 }
 
 /*
- * Used only at the source. This is used only when async_copy is invoked
+ * Used only at the source. This is used only when asyncCopy is invoked
  */
+
+void increment_task_in_flight_self() {
+	INCREMENT_TASK_IN_FLIGHT_SELF;
+}
+
 inline void decrement_task_in_flight_self(int tasks) {
 	(&asyncsInFlightCountLock[upcxx::global_myrank()])->lock();
 	asyncsInFlight[upcxx::global_myrank()] = asyncsInFlight[upcxx::global_myrank()]-tasks;
@@ -160,7 +205,28 @@ inline void decrement_task_in_flight(int place, int tasks) {
 inline void mark_victimContacted(int v) {
 	HASSERT(contacted_victims[v] == POPPED_ENTRY);
 	contacted_victims[v] = QUEUED_ENTRY;
-	check_cyclicSteals(v, head, tail, queued_thieves);
+	bool ret = check_cyclicSteals(v, head, tail, queued_thieves);
+	if (cyclic_steals_not_allowed && ret) {
+		// This victim is already queued as Thief with me.
+		// Remove this victim from queued_thief list
+		int queued_thieves_tmp[upcxx::global_ranks()];
+		int index=-1;
+		while(head!=tail) {
+			int t = queued_thieves[++head % upcxx::global_ranks()];
+           		if(v!=t) {
+                        	queued_thieves_tmp[++index] = t;
+            		}
+        	}
+		head=-1;
+		tail=index;
+#ifdef HCPP_DEBUG
+			cout <<upcxx::global_myrank() << ": Cyclic steals, queued_thieves -->" << v << " new head= "<< head << " tail = " << tail << endl;
+#endif
+		if(tail != -1) {
+			memcpy(queued_thieves, queued_thieves_tmp, sizeof(int)*upcxx::global_ranks());
+		}
+		else thieves_waiting = false;
+	}
 }
 
 inline void unmark_victimContacted(int v) {
@@ -187,10 +253,10 @@ inline int size_thief_queue() {
 
 inline bool empty_thief_queue() {
 	if(head==tail) {
-		head = tail = -1;
-		return true;
-	}
-	else return false;
+                head = tail = -1;
+                return true;
+        }
+        else return false;
 }
 
 /*
@@ -201,6 +267,14 @@ inline void queue_thief(int i) {
 	thieves_waiting = true;
 	check_if_out_of_work_stats(out_of_work);
 	queued_thieves[++tail % upcxx::global_ranks()] = i;
+	// Check if I owe task from this thief, i.e., if this
+	// thief is queued as one my victims
+	if(cyclic_steals_not_allowed && victim_already_contacted(i)) {
+#ifdef HCPP_DEBUG
+			cout <<upcxx::global_myrank() << ": Cyclic steals, unmark_victimContacted -->" << i << endl;
+#endif
+		unmark_victimContacted(i);
+	}
 }
 
 inline int pop_thief() {
@@ -260,15 +334,15 @@ void decrement_tasks_in_flight_count() {
 }
 
 bool received_tasks_from_victim() {
-	return tasks_received>0;
+	return (tasks_received>0);
 }
 
 /*
  * Distributed runtime initialization.
  */
 void initialize_distws_setOfThieves() {
-	if(getenv("HCLIB_STEAL_N") != NULL) {
-		totalTasksStolenInOneShot = std::stod(getenv("HCLIB_STEAL_N"));
+	if(getenv("HCPP_STEAL_N") != NULL) {
+		totalTasksStolenInOneShot = std::stod(getenv("HCPP_STEAL_N"));
 		HASSERT(totalTasksStolenInOneShot > 0);
 		if(totalTasksStolenInOneShot>1) {
 			HASSERT((totalTasksStolenInOneShot-(int)totalTasksStolenInOneShot) == 0);       // do not want something like 1.5
@@ -283,21 +357,45 @@ void initialize_distws_setOfThieves() {
 	if(upcxx::global_myrank() == 0) {
 #ifdef DIST_WS
 		cout << "---------DIST_WS_RUNTIME_INFO-----------" << endl;
-		if(getenv("HCLIB_DIST_WS_BASELINE")) {
-			printf(">>> HCLIB_DIST_WS_BASELINE\t\t= true\n");
+		bool baseline = true;
+		if(successonly_distWS) {
+			printf(">>> HCPP_DIST_WS_SUCCESSONLY\t\t= true\n");
+			baseline = false;
 		}
-		else {
-			printf(">>> HCLIB_DIST_WS_BASELINE\t\t= false\n");
+
+		if(successonly_glb_distWS) {
+			printf(">>> HCPP_DIST_WS_SUCCESSONLY_GLB\t\t= true\n");
+			baseline = false;
 		}
+
+		if(glb_distWS) {
+			printf(">>> HCPP_DIST_WS_GLB\t\t= true\n");
+			assert(baseline && "Error.. Cannot enable both HCPP_DIST_WS_SUCCESSONLY and HCPP_DIST_WS_GLB");
+			baseline = false;
+			if(getenv("HCPP_DIST_WS_GLB_RAND")) {
+				glb_max_rand_attempts = atoi(getenv("HCPP_DIST_WS_GLB_RAND"));
+				assert(glb_max_rand_attempts <= (upcxx::global_ranks()-1) && "Error: HCPP_DIST_WS_GLB_RAND should be less than total number of Places");
+				printf(">>> HCPP_DIST_WS_GLB_RAND\t\t= %d\n",glb_max_rand_attempts);
+			}
+		}
+
+		if(baseline) {
+			printf(">>> HCPP_DIST_WS_BASELINE\t\t= true\n");
+		}
+
+		if(getenv("HCPP_CANCEL_CYCLIC_STEALS")) {
+			printf(">>> HCPP_CANCEL_CYCLIC_STEALS\t\t= true\n");
+		}
+
 		if(totalTasksStolenInOneShot < 1) {
-			printf("WARNING (HCLIB_STEAL_N): N should always be positive integer, setting it as 1\n");
+			printf("WARNING (HCPP_STEAL_N): N should always be positive integer, setting it as 1\n");
 			totalTasksStolenInOneShot = 1;
 		}
-		printf(">>> HCLIB_STEAL_N\t\t= %f\n",totalTasksStolenInOneShot);
+		printf(">>> HCPP_STEAL_N\t\t= %f\n",totalTasksStolenInOneShot);
 		printf(">>> %s\n",vsdescript());
 		cout << "----------------------------------------" << endl;
 #endif
-		hclib::display_runtime();
+		hcpp::display_runtime();
 	}
 	assert(totalTasksStolenInOneShot <= 5);
 	stats_initTimelineEvents();
@@ -308,17 +406,15 @@ void initialize_distws_setOfThieves() {
 #endif
 
 	workAvail.init(upcxx::global_ranks());
-	workAvailLock.init(upcxx::global_ranks());
-	new (workAvailLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
 	waitForTaskFromVictim.init(upcxx::global_ranks());
 
 	asyncsInFlight.init(upcxx::global_ranks());
 	asyncsInFlightCountLock.init(upcxx::global_ranks());
-	new (asyncsInFlightCountLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
+	ALLOC_ARRAY_SHARED_LOCK(asyncsInFlightCountLock);
 
 	req_thread.init(upcxx::global_ranks());
 	reqLock.init(upcxx::global_ranks());
-	new (reqLock[upcxx::global_myrank()].raw_ptr()) upcxx::shared_lock(upcxx::global_myrank());
+	ALLOC_ARRAY_SHARED_LOCK(reqLock);
 
 	workAvail[upcxx::global_myrank()] = NOT_WORKING;
 	req_thread[upcxx::global_myrank()] = REQ_UNAVAILABLE;
@@ -350,20 +446,6 @@ int total_asyncs_inFlight() {
 }
 
 /*
- * victim uses to this to publish its load info in global address space
- * to help thief in: a) finding correct victim; and b) termination detection.
- */
-void publish_local_load_info() {
-#ifdef DIST_WS
-	const int total_aany = hclib::totalAsyncAnyAvailable();
-	workAvail[upcxx::global_myrank()] = (total_aany>0) ? total_aany : totalPendingLocalAsyncs();
-#else
-	workAvail[upcxx::global_myrank()] = totalPendingLocalAsyncs();
-#endif
-}
-
-#ifdef DIST_WS
-/*
  * Runs at thief when victim sends asyncAny task to thief
  */
 template <typename T>
@@ -385,147 +467,200 @@ void launch_upcxx_async(T* lambda, int dest) {
 }
 
 /*
+ * Communication worker uses this routine to steal asyncAny from its
+ * companion computation workers and then send them to remote thief
+ */
+inline hcpp::remoteAsyncAny_task* steal_from_my_computation_workers(int *count) {
+	hcpp::remoteAsyncAny_task* tasks = (hcpp::remoteAsyncAny_task*) malloc(sizeof(hcpp::remoteAsyncAny_task) * MAX_ASYNC_ANY_TASKS_SHIPMENT);
+	int i = 0;
+	for( ; i<totalTasksStolenInOneShot; i++) {
+		// Steal task from computation workers
+		if(i>0 && idle_workers) break;
+		bool success = hcpp::steal_fromComputeWorkers_forDistWS(&(tasks[i]));
+		if(!success) break;	// never return from here as it will be bug in case HCPP_STEAL_N>1
+		increment_outgoing_tasks();
+	}
+
+	if(i >0) {
+		/*
+		 * Now that the tasks are stolen from the computation workers, these tasks would be sent to
+		 * remote thief for sure. This would be done by using one single upcxx::async and hence
+		 * simply increment outgoing task counter
+		 */
+		INCREMENT_TASK_IN_FLIGHT_SELF;
+	}
+
+	*count = i;
+	return tasks;
+}
+
+/*
+ * Communication worker uses this routine to ship asyncAny tasks to a remote thief
+ */
+inline void ship_asyncAny_to_remote_thief(hcpp::remoteAsyncAny_task* asyncs, int count, int thief, bool baselineWS) {
+	success_steals_stats(baselineWS);
+	const int source = upcxx::global_myrank();
+	hcpp::remoteAsyncAny_task tasks[MAX_ASYNC_ANY_TASKS_SHIPMENT];
+	assert(count <= MAX_ASYNC_ANY_TASKS_SHIPMENT && "HCPP_STEAL_N doesn't mismatch");
+	memcpy(tasks, asyncs, count*sizeof(hcpp::remoteAsyncAny_task));
+	free(asyncs);
+
+#ifdef HCPP_DEBUG
+	cout <<upcxx::global_myrank() << ": (baseline=" << baselineWS << ") Sending " << count << " tasks to " << thief << endl;
+#endif
+
+	auto lambda_for_thief = [tasks, count, source, baselineWS]() {
+		const int dest = upcxx::global_myrank();
+		assert(source != dest);
+		unwrap_n_asyncAny_tasks(tasks, count);
+		if(baselineWS) {
+			DECREMENT_TASK_IN_FLIGHT(source);
+			// this flag is only modified by thief, but victim can also mark false if its out of work
+			waitForTaskFromVictim[dest] = false;
+		}
+		else {
+			queue_source_place_of_remoteTask(source);
+			unmark_victimContacted(source);
+		}
+	};
+
+	launch_upcxx_async<decltype(lambda_for_thief)>(&lambda_for_thief, thief);
+	if(baselineWS) {
+		req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
+	}
+	upcxx::advance();
+}
+
+/*
  * Victim function.
  * Victim pops pending steal requests. If its able to steal even
  * one asyncAny task from its computation worker, it will pop
  * a pending remote steal request and send asyncAny using upcxx::async.
  * At the end it will publish its local load.
  */
-bool serve_pending_distSteal_request() {
+inline bool serve_pending_distSteal_request_asynchronous() {
 	// if im here then means I have tasks available
 	out_of_work = false;
-	while(!idle_workers && thieves_waiting) {
-		// First make sure, we still have tasks, hence try local steal first
-		int i=0;
-		hclib::remoteAsyncAny_task tasks[5];
+	// First make sure, we still have tasks, hence try local steal first
+	int count = 0;
+	hcpp::remoteAsyncAny_task* tasks = steal_from_my_computation_workers(&count);
 
-		for( ; i<totalTasksStolenInOneShot; i++) {
-			// Steal task from computation workers
-			if(i>0 && idle_workers) break;
-			bool success = hclib::steal_fromComputeWorkers_forDistWS(&tasks[i]);
-			if(!success) break;	// never return from here as it will be bug in case HCLIB_STEAL_N>1
-			increment_outgoing_tasks();
-		}
-
-		if(i > 0) {
-			// Increment outgoing task counter
-			increment_task_in_flight_self();
-
-			// pop a thief
-			const int thief = pop_thief();
-			HASSERT(thief >= 0);
-			// use upcxx::async to send task to requestor
-#ifdef HCLIB_DEBUG
-			cout <<upcxx::global_myrank() << ": Sending " << i << " tasks to " << thief << endl;
-#endif
-			success_steals_stats();
-			const int source = upcxx::global_myrank();
-			auto lambda_for_thief = [tasks, i, source]() {
-				const int dest = upcxx::global_myrank();
-				assert(source != dest);
-				unwrap_n_asyncAny_tasks(tasks, i);
-				//decrement_task_in_flight(source);
-				queue_source_place_of_remoteTask(source);
-				unmark_victimContacted(source);
-			};
-
-			launch_upcxx_async<decltype(lambda_for_thief)>(&lambda_for_thief, thief);
-			upcxx::advance();
-		}
-		else {
-			out_of_work = true;
-			break; // cannot steal tasks to send remote
-		}
+	if(count > 0) {
+		// pop a thief
+		const int thief = pop_thief();
+		HASSERT(thief >= 0);
+		ship_asyncAny_to_remote_thief(tasks, count, thief, false);
+		return true;
 	}
 
-	// re-advertise correct work
-	publish_local_load_info();
-
-	return true;
+	return false;
 }
 
-bool serve_pending_distSteal_request_baseline() {
+bool serve_pending_distSteal_request_successonly() {
+	bool success = true;
 	// if im here then means I have tasks available
+	while(!idle_workers && thieves_waiting) {
+		success = serve_pending_distSteal_request_asynchronous();
+		if(!success) break;
+	}
 
+	publish_local_load_info();
+	return success;
+}
+
+inline int renewed_as_victim() {
+	const int declared_load = hcpp::totalAsyncAnyAvailable();
 	if(req_thread[upcxx::global_myrank()] == REQ_UNAVAILABLE) {
 		// this will be true only in two conditions:
 		// 1. this thread was a thief in previous iteration
 		// 2. this thread just started with work
-		const int work = hclib::totalAsyncAnyAvailable();
-		if(work) {
+		if(declared_load) {
 			req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
-			workAvail[upcxx::global_myrank()] = work;
+			//glb: we now handling this case when we return from this function
+			//workAvail[upcxx::global_myrank()] = work;
+		}
+	}
+	return declared_load;
+}
+
+inline bool serve_pending_distSteal_request_synchronous() {
+	// if im here then means I have tasks available
+	out_of_work = false;
+	int requestor = req_thread[upcxx::global_myrank()];
+	if (requestor >= 0) {
+		int count = 0;
+		hcpp::remoteAsyncAny_task* tasks = steal_from_my_computation_workers(&count);
+
+		if(count > 0) {
+			ship_asyncAny_to_remote_thief(tasks, count, requestor, true);
 			return true;
 		}
+	}
+
+	return false;
+}
+
+bool serve_pending_distSteal_request_baseline() {
+	bool success = false;
+	if(renewed_as_victim() > 0) {
+		success = serve_pending_distSteal_request_synchronous();
+	}
+	// re-advertise correct work
+	publish_local_load_info();
+	return success;
+}
+
+bool serve_pending_distSteal_request_glb() {
+	current_glb_max_rand_attempts = 0;
+	out_of_work = false;
+
+	bool success = true;
+	if(renewed_as_victim() == 0) {
+		publish_local_load_info();
 		return false;
 	}
 
-	int requestor = req_thread[upcxx::global_myrank()];
-	if (requestor >= 0) {
-		int i=0;
-		hclib::remoteAsyncAny_task tasks[5];
-
-		for( ; i<totalTasksStolenInOneShot; i++) {
-			if(i>0 && idle_workers) break;
-			// Steal task from computation workers
-			bool success = hclib::steal_fromComputeWorkers_forDistWS(&tasks[i]);
-			if(!success) break;	// never return from here as it will be bug in case HCLIB_STEAL_N>1
-			increment_outgoing_tasks();
+	while(success) {
+		if(req_thread[upcxx::global_myrank()]>=0) {
+			success = serve_pending_distSteal_request_synchronous();
 		}
-
-		if(i > 0) {
-			// Increment outgoing task counter
-			INCREMENT_TASK_IN_FLIGHT_SELF;
-
-
-			// use upcxx::async to send task to requestor
-#ifdef HCLIB_DEBUG
-			cout <<upcxx::global_myrank() << ": Sending " << i << " tasks to " << requestor << endl;
-#endif
-			success_steals_stats();
-			const int source = upcxx::global_myrank();
-			auto lambda_for_thief = [tasks, i, source]() {
-				const int dest = upcxx::global_myrank();
-				assert(source != dest);
-				unwrap_n_asyncAny_tasks(tasks, i);
-				DECREMENT_TASK_IN_FLIGHT(source);
-				// this flag is only modified by thief, but victim can also mark false if its out of work
-				waitForTaskFromVictim[dest] = false;
-			};
-
-			launch_upcxx_async<decltype(lambda_for_thief)>(&lambda_for_thief, requestor);
-			req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
-			upcxx::advance();
+		else if(!idle_workers && thieves_waiting) {
+			success = serve_pending_distSteal_request_asynchronous();
+		}
+		else {
+			success = false;
+			break;
 		}
 	}
 
-	// re-advertise correct work
 	publish_local_load_info();
-
-	return true;
+	return success;
 }
+
+/**************************************
+ *  Thief operated routines start here
+ **************************************/
 
 inline void mark_myPlace_asIdle() {
-	out_of_work = true;
-	workAvail[upcxx::global_myrank()] = NOT_WORKING;
-}
-
-inline void mark_myPlace_asIdle_baseline() {
-	if(workAvail[upcxx::global_myrank()] == NOT_WORKING && req_thread[upcxx::global_myrank()] == REQ_UNAVAILABLE) {
-		return;
+	const int me = upcxx::global_myrank();
+	if(out_of_work) {
+			return;
 	}
-	else {
-		LOCK_REQ_SELF;
-		workAvail[upcxx::global_myrank()] = NOT_WORKING;
-		int pendingReq = req_thread[upcxx::global_myrank()];
-		req_thread[upcxx::global_myrank()] = REQ_UNAVAILABLE;
-		UNLOCK_REQ_SELF;
 
-		if(pendingReq >= 0) {
-			// invalidate steal request. this steal request has failed
-			// This will get the thief out of the while loop in steal_from_victim()
-			waitForTaskFromVictim[pendingReq] = false;
-		}
+	out_of_work = true;
+	workAvail[me] = NOT_WORKING;
+
+	if(baseline_distWS || glb_distWS) {
+			LOCK_REQ_SELF;
+			int pendingReq = req_thread[me];
+			req_thread[me] = REQ_UNAVAILABLE;
+			UNLOCK_REQ_SELF;
+
+			if(pendingReq >= 0) {
+				// invalidate steal request. this steal request has failed
+				// This will get the thief out of the while loop in steal_from_victim()
+				waitForTaskFromVictim[pendingReq] = false;
+			}
 	}
 }
 
@@ -544,101 +679,65 @@ void receipt_of_stealRequest() {
  *
  * This is an improvement over:
  * Saraswat, V.A., Kambadur, P., Kodali, S., Grove, D., Krishnamoorthy,
- * S.: Lifeline-based global load balancing. In: PPoPP. pp. 201�212 (2011)
+ * S.: Lifeline-based global load balancing. In: PPoPP. pp. 201-212 (2011)
  */
-bool search_tasks_globally() {
-	// show this thread as not working
-	mark_myPlace_asIdle();
-	// restart victim selection
-	resetVictimArray();
+inline bool attempt_steal_or_set_lifeline(int v, int me) {
+	if(victim_already_contacted(v)) return false;
 
-	const int me = upcxx::global_myrank();
-	int victims_contacted = 0;
-	/* check all other threads */
-	for (int i = 1; i < upcxx::global_ranks() && !received_tasks_from_victim(); i++) {
-		const int v = selectvictim();
-		if(victim_already_contacted(v)) continue;
+	int workProbe = workAvail[v];
+	total_asyncany_rdma_probes_stats();
 
-		int workProbe = workAvail[v];
-		total_asyncany_rdma_probes_stats();
+	if (workProbe > task_transfer_threshold) { // TODO: may not be good in case of HPT
+		// try to queue for work
+		mark_victimContacted(v);
+		waiting_for_returnAsync = true;
 
-		if (workProbe > task_transfer_threshold) { // TODO: may not be good in case of HPT
-			// try to queue for work
-			mark_victimContacted(v);
-			waiting_for_returnAsync = true;
+		auto lambda = [me]() {
+			queue_thief(me);
+			upcxx::async(me, NULL)(receipt_of_stealRequest);
+		};
 
-			auto lambda = [me]() {
-				queue_thief(me);
-				upcxx::async(me, NULL)(receipt_of_stealRequest);
-			};
+		launch_upcxx_async<decltype(lambda)>(&lambda, v);
 
-			launch_upcxx_async<decltype(lambda)>(&lambda, v);
-
-#ifdef HCLIB_DEBUG
-			cout <<upcxx::global_myrank() << ": Sending steal request to " << v << endl;
+#ifdef HCPP_DEBUG
+		cout <<upcxx::global_myrank() << ": Sending steal request to " << v << endl;
 #endif
-			victims_contacted++;
 
-			while(waiting_for_returnAsync) {
-				upcxx::advance();
-#ifdef HCLIB_DEBUG
-				cout <<upcxx::global_myrank() << ": Waiting for return async"<< endl;
+		while(waiting_for_returnAsync) {
+			upcxx::advance();
+#ifdef HCPP_DEBUG
+			cout <<upcxx::global_myrank() << ": Waiting for return async"<< endl;
 #endif
-			}
 		}
+		return true;
+	}
+
+	return false;
+}
+
+inline bool search_for_lifelines(bool glb) {
+	const int me = upcxx::global_myrank();
+	const int ranks = upcxx::global_ranks();
+	int victims_contacted = 0;
+	/*
+	 * Hypercube neighbors:
+	 * The lowBound and highBound in this case for loop as well as the function
+	 * to calculate the victim id was contributed by Karthik S.M.
+	 */
+	const int upperBound = glb ? log(ranks) : ranks;
+	int victim;
+	/* check all other threads */
+	for (int i = 0; i < upperBound && !received_tasks_from_victim(); i++) {
+		if(glb) victim = ((int)(pow(2,i)+me)) % ranks;
+		else victim = selectvictim();
+		if(me == victim) continue;
+		const bool success = attempt_steal_or_set_lifeline(victim, me);
+		if(success) victims_contacted++;
 	} /*for */
 
 	contacted_victims_statistics(victims_contacted);
 
 	return victims_contacted>0;
-}
-
-
-inline int findwork_baseline() {
-	int workDetected;
-
-	do {
-		workDetected = 0;
-		/* check all other threads */
-		resetVictimArray();
-
-		for (int i = 1; i < upcxx::global_ranks(); i++) {
-			int v = selectvictim();
-			int workProbe = workAvail[v];
-			total_asyncany_rdma_probes_stats();
-
-			if (workProbe != NOT_WORKING)
-				workDetected = 1;
-
-			if (workProbe > task_transfer_threshold) {
-				// try to queue for work
-				LOCK_REQ(v);
-				bool success = (req_thread[v] == REQ_AVAILABLE);
-				if (success) {
-					waitForTaskFromVictim[upcxx::global_myrank()] = true;	// no lock is required to modify this, but we always want to do this before marking our id at victim
-					req_thread[v] = upcxx::global_myrank();
-				}
-				UNLOCK_REQ(v);
-
-				if (success) {
-#ifdef HCLIB_DEBUG
-					cout <<upcxx::global_myrank() << ": Receiving tasks from " << v << endl;
-#endif
-					return v;
-				}
-				else {
-#ifdef HCLIB_DEBUG
-					cout <<upcxx::global_myrank() << ": Failed to steal from " << v << endl;
-#endif
-					record_failedSteal_timeline();
-				}
-			}
-
-		} /*for */
-
-	} while (workDetected);
-
-	return NONE_WORKING;
 }
 
 inline bool steal_from_victim_baseline(int victim) {
@@ -650,36 +749,125 @@ inline bool steal_from_victim_baseline(int victim) {
 	return true;
 }
 
-bool search_tasks_globally_baseline() {
-	// show this thread as not working
-	mark_myPlace_asIdle_baseline();
+inline int attempt_synchronous_steal(int v) {
+	int workProbe = workAvail[v];
+	const int me = upcxx::global_myrank();
+	total_asyncany_rdma_probes_stats();
 
-	bool success = false;
-	while(true) {
-		const int victim = findwork_baseline();
-		if(victim >= 0) {
+	if (workProbe == NOT_WORKING)
+		return NOT_WORKING;
+
+	if (workProbe > task_transfer_threshold) {
+		// try to queue for work
+		LOCK_REQ(v);
+		bool success = (req_thread[v] == REQ_AVAILABLE);
+		if (success) {
+			waitForTaskFromVictim[me] = true;	// no lock is required to modify this, but we always want to do this before marking our id at victim
+			req_thread[v] = me;
+		}
+		UNLOCK_REQ(v);
+
+		if (success) {
+#ifdef HCPP_DEBUG
+			cout <<upcxx::me << ": Receiving tasks from " << v << endl;
+#endif
 			// once this function returns, then it means the work is received from victim
-			success = steal_from_victim_baseline(victim);
+			success = steal_from_victim_baseline(v);
 			if(success) {
-				workAvail[upcxx::global_myrank()] = 0;
-				req_thread[upcxx::global_myrank()] = REQ_AVAILABLE;
-				//success steal, increment the counter
-				break;	// start the fast path
+				workAvail[me] = 0;
+				req_thread[me] = REQ_AVAILABLE;
+				out_of_work=false;
 			}
-			else {
-				// failed steal, increment the counter
-				// keep searching
-				continue;
-			}
+			return SUCCESS_STEAL;
 		}
 		else {
-			// probably all places are idle
-			break;
+#ifdef HCPP_DEBUG
+			cout <<upcxx::me << ": Failed to steal from " << v << endl;
+#endif
+			record_failedSteal_timeline();
+			return FAILED_STEAL;
 		}
+	}
+
+	return NOT_WORKING;
+}
+
+inline bool search_tasks_globally_synchronous(bool glb) {
+	for (int i = 1; i < upcxx::global_ranks(); i++) {
+		int v = selectvictim();
+		const int status = attempt_synchronous_steal(v);
+		switch(status) {
+		case SUCCESS_STEAL:
+			if(glb) current_glb_max_rand_attempts = 0;
+			return true;
+		case FAILED_STEAL:
+			if(glb) current_glb_max_rand_attempts++;
+			/* Do nothing else */
+			break;
+		case NOT_WORKING:
+			/* Do nothing */
+			break;
+		default:
+			assert(0 && "Unexpected switch-case statement");
+		}
+
+		if(glb && (current_glb_max_rand_attempts >= glb_max_rand_attempts)) {
+			return false;
+		}
+
+	} /*for */
+
+	return false;
+}
+
+bool search_tasks_globally_successonly() {
+	// show this thread as not working
+	mark_myPlace_asIdle();
+	// restart victim selection
+	resetVictimArray();
+	bool glb = successonly_distWS ? false : true;
+	return search_for_lifelines(glb);
+}
+
+bool search_tasks_globally_baseline() {
+	// show this thread as not working
+	mark_myPlace_asIdle();
+	// restart victim selection
+	resetVictimArray();
+	return search_tasks_globally_synchronous(false);
+}
+
+bool search_tasks_globally_glb() {
+	// show this thread as not working
+	mark_myPlace_asIdle();
+	// restart victim selection
+	resetVictimArray();
+
+	/*
+	 * When a rank becomes a thief, it would try "HCPP_DIST_WS_GLB_RAND" number of random
+	 * victim selections first, followed by setting up lifelines
+	 *
+	 * However, in one search cycle it might be possible that it fails
+	 * in both. In the next search cycles it should never try random selections
+	 * and hence we return true to hint that random attempts are already done
+	 */
+	bool tryRandomVictim = (current_glb_max_rand_attempts < glb_max_rand_attempts);
+
+	bool success = false;
+	if(tryRandomVictim) {
+		// Start with attempting steal from random victims
+		success = search_tasks_globally_synchronous(true);
+	}
+
+	// Recheck--in any case don't attempt lifeline without attempting required number of rand attempts
+	tryRandomVictim = (current_glb_max_rand_attempts < glb_max_rand_attempts);
+
+	if(!success && !tryRandomVictim) {
+		// Now try the lifeline approach
+		return search_for_lifelines(true);
 	}
 
 	return success;
 }
-#endif
 
 }

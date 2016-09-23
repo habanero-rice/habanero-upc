@@ -45,21 +45,16 @@ static int hc_workers;
 static bool hc_workers_initialized = false;
 volatile int* current_finish_counter = NULL;
 
-extern "C" {
-extern void (*hclib_distributed_future_register_callback)(
-        hclib::promise_t** promise_list);
+void init(int * argc, char *** argv) {
+        hcpp::init(argc, *argv, dddf_register_callback);
+        upcxx::init(argc, argv);
+        hupcpp::showStatsHeader();
 }
 
-void launch(int *argc, char ***argv, std::function<void()> lambda) {
-    hclib_distributed_future_register_callback = dpromise_register_callback;
-
-        upcxx::init(argc, argv);
-     hclib::launch(argc, *argv, [=]() {
-        hupcpp::showStatsHeader();
-        lambda();
+void finalize() {
         hupcpp::showStatsFooter();
-     });
         upcxx::finalize();
+        hcpp::finalize();
 }
 
 void initialize_hcWorker() {
@@ -71,7 +66,7 @@ void initialize_hcWorker() {
 }
 
 /*
- * upcxx::event management for async_copy
+ * upcxx::event management for asyncCopy
  */
 typedef struct event_list {
 	upcxx::event e;
@@ -107,7 +102,7 @@ upcxx::event* get_upcxx_event() {
 }
 
 /*
- * upcxx::event management for async_copy
+ * upcxx::event management for asyncCopy
  */
 inline void free_upcxx_event_list() {
 	while(event_list_head) {
@@ -164,7 +159,7 @@ void cb_init() {
 	cb_done = 0;
 	CB_UNLOCK;
 #ifdef DIST_WS
-	hclib::registerHCUPC_callback(&idle_workers);
+	hcpp::registerHCUPC_callback(&idle_workers);
 	idle_workers_threshold = hc_workers > 12 ? 2 : 0;	// heuristic for 24 core edison node only !!!
 #endif
 }
@@ -210,7 +205,7 @@ inline int cbarrier_test() {
 void send_taskto_comm_worker(comm_async_task* task) {
 	// increment the finish counter
 	HASSERT(current_finish_counter);
-	hclib_atomic_inc(current_finish_counter);
+	hcpp_atomic_inc(current_finish_counter);
 	// push the task to deque maintained in hcupc
 	comm_task_push(task);
 }
@@ -241,207 +236,124 @@ inline void pop_execute_comm_task() {
 			(task._fp)(task._args);
 			// decrement finish counter
 			HASSERT(current_finish_counter);
-			hclib_atomic_dec(current_finish_counter);
+			hcpp_atomic_dec(current_finish_counter);
 		}
 	}
 }
+
+void hcpp_finish_barrier() {
+	int status = NO_TERM;
+
+	hupcpp::barrier();
+	const bool singlePlace = upcxx::global_ranks() == 1;
 
 #ifdef DIST_WS
+	auto checkIncomingTasksFromLifelines = baseline_distWS ? [=]() { /* Do nothing */ }
+							 : [=](){ if(received_tasks_from_victim()) { decrement_tasks_in_flight_count(); } };
 
-const static char* baseline_distWS = getenv("HCLIB_DIST_WS_BASELINE");
+	auto feedRemoteThieves = baseline_distWS ? [=]() { serve_pending_distSteal_request_baseline(); }
+							 : ( (successonly_distWS || successonly_glb_distWS) ? [=]() { serve_pending_distSteal_request_successonly(); }
+							 : [=]() { serve_pending_distSteal_request_glb(); } );
 
-void hclib_finish_barrier_distWS() {
-	int status = NO_TERM;
-
-	hupcpp::barrier();
-	const bool singlePlace = upcxx::global_ranks() == 1;
-
-	while (status != TERM) {
-		pop_execute_comm_task();
-
-		upcxx::advance();
-		bool tasksReceived = received_tasks_from_victim();
-		if(tasksReceived) {
-			decrement_tasks_in_flight_count();
-		}
-		bool tryTermination = true;
-
-		// 1. If i have extra tasks then I should feed others
-		if(!initiate_global_steal()) {
-			serve_pending_distSteal_request();
-		}
-
-		// 2. If my workers are asking global steals then I should try dist ws
-		else {
-			bool success = search_tasks_globally();
-			if(success) tryTermination = false;
-		}
-
-		// 3. If I failed stealing and my workers are idle, I should try termination
-		if(tryTermination && totalPendingLocalAsyncs() == 0 && total_asyncs_inFlight() == 0) {
-			if(singlePlace) break;
-			status = cbarrier_inc();
-			while (status != TERM) {
-				const bool isTrue = (received_tasks_from_victim() || detectWork()) && cbarrier_dec() != TERM;
-				if (isTrue) {
-					status = NO_TERM;
-					break;
-				}
-				else {
-					upcxx::advance();	// only when this place is sure all other place are idle
-				}
-				status = cbarrier_test();
-			}
-		}
-	}
-
-	HASSERT(totalPendingLocalAsyncs() == 0);
-
-	hupcpp::barrier();
-}
-
-void hclib_finish_barrier_baseline_distWS() {
-	int status = NO_TERM;
-
-	hupcpp::barrier();
-	const bool singlePlace = upcxx::global_ranks() == 1;
-
-	while (status != TERM) {
-		pop_execute_comm_task();
-
-		upcxx::advance();
-		bool tryTermination = true;
-
-		// 1. If i have extra tasks then I should feed others
-		if(!initiate_global_steal()) {
-			serve_pending_distSteal_request_baseline();
-		}
-
-		// 2. If my workers are asking global steals then I should try dist ws
-		else {
-			bool success = search_tasks_globally_baseline();
-			if(success) tryTermination = false;
-		}
-
-		// 3. If I failed stealing and my workers are idle, I should try termination
-		if(tryTermination && totalPendingLocalAsyncs() == 0 && total_asyncs_inFlight() == 0) {
-			if(singlePlace) break;
-			status = cbarrier_inc();
-			while (status != TERM) {
-				const bool isTrue = detectWork() && cbarrier_dec() != TERM;
-				if (isTrue) {
-					status = NO_TERM;
-					break;
-				}
-				else {
-					upcxx::advance();	// only when this place is sure all other place are idle
-				}
-				status = cbarrier_test();
-			}
-		}
-	}
-
-	HASSERT(totalPendingLocalAsyncs() == 0);
-
-	hupcpp::barrier();
-}
-
-void hclib_finish_barrier() {
-	if(baseline_distWS) {
-		hclib_finish_barrier_baseline_distWS();
-	}
-	else {
-		hclib_finish_barrier_distWS();
-	}
-}
-
+   auto initiateRemoteSteals = baseline_distWS ? [=]() { return search_tasks_globally_baseline(); }
+   	   	   	   	   	   	   	 : ( (successonly_distWS || successonly_glb_distWS) ? [=]() { return search_tasks_globally_successonly(); }
+   	   	   	   	   	   	   	 : [=]() { return search_tasks_globally_glb(); } );
 #else
-
-void hclib_finish_barrier() {
-	int status = NO_TERM;
-
-	hupcpp::barrier();
-	const bool singlePlace = upcxx::global_ranks() == 1;
-
-	while (status != TERM) {
-		pop_execute_comm_task();
-
-		publish_local_load_info();
-
-		upcxx::advance();
-
-		bool tasksReceived = received_tasks_from_victim();
-		if(tasksReceived) {
-			decrement_tasks_in_flight_count();
-		}
-
-		if(totalPendingLocalAsyncs() == 0 && total_asyncs_inFlight() == 0) {
-			if(singlePlace) break;
-			status = cbarrier_inc();
-			while (status != TERM) {
-				const bool isTrue = (received_tasks_from_victim() || detectWork()) && cbarrier_dec() != TERM;
-				if (isTrue) {
-					status = NO_TERM;
-					break;
-				}
-				else {
-					upcxx::advance();	// only when this place is sure all other place are idle
-				}
-				status = cbarrier_test();
-			}
-		}
-	}
-
-	HASSERT(totalPendingLocalAsyncs() == 0);
-
-	hupcpp::barrier();
-}
-
+	auto checkIncomingTasks = [=]() { if(received_tasks_from_victim()) { decrement_tasks_in_flight_count(); } };
 #endif
 
+	while (status != TERM) {
+		pop_execute_comm_task();
+
+#ifndef DIST_WS
+		publish_local_load_info();
+#endif
+		upcxx::advance();
+
+		bool tryTermination = true;
+
+#ifdef DIST_WS
+		checkIncomingTasksFromLifelines();
+
+		// 1. If i have extra tasks then I should feed others
+		if(!initiate_global_steal()) {
+			feedRemoteThieves();
+		}
+
+		// 2. If my workers are asking global steals then I should try dist ws
+		else {
+			bool success = initiateRemoteSteals();
+			if(success) tryTermination = false;
+		}
+#else
+		checkIncomingTasks();
+#endif
+		// 3. If I failed stealing and my workers are idle, I should try termination
+		if(tryTermination && totalPendingLocalAsyncs() == 0 && total_asyncs_inFlight() == 0) {
+			if(singlePlace) break;
+			status = cbarrier_inc();
+			while (status != TERM) {
+				const bool isTrue = ((received_tasks_from_victim() || detectWork()) && cbarrier_dec() != TERM);
+				if (isTrue) {
+					status = NO_TERM;
+					break;
+				}
+				else {
+					upcxx::advance();	// only when this place is sure all other place are idle
+				}
+				status = cbarrier_test();
+			}
+		}
+	}
+
+	HASSERT(totalPendingLocalAsyncs() == 0);
+
+	hupcpp::barrier();
+}
+
 void finish_spmd(std::function<void()> lambda) {
-    HASSERT(hc_workers_initialized);
-    cb_init();
-    start_finish_spmd_timer();
-    /*
-     * we support distributed workstealing only if each
-     * place has a communication worker, i.e. hc_workers > 1
-     */
-    hupcpp::barrier();
-    const bool comm_worker = true;//hc_workers > 1 && upcxx::global_ranks() > 1;
+	HASSERT(hc_workers_initialized);
+	cb_init();
+	start_finish_spmd_timer();
+	/*
+	 * we support distributed workstealing only if each
+	 * place has a communication worker, i.e. hc_workers > 1
+	 */
+	hupcpp::barrier();
+	const bool comm_worker = true;//hc_workers > 1 && upcxx::global_ranks() > 1;
 
-    current_finish_counter = hclib::start_finish_special();
+	current_finish_counter = hcpp::start_finish_special();
 
-    // launch async tasks in immediate scopr of the finish_spmd in user program
-    lambda();
+	// launch async tasks in immediate scopr of the finish_spmd in user program
+	lambda();
 
-    if(comm_worker) {
-        /*
-         * The termiantion detection is the job of communication worker.
-         * This is also treated as an async task and hence we wrap the
-         * termination detection task in an async_comm such that it
-         * gets scheduled only at out_deq of communication worker. It
-         * has while loop, which the comm worker loops upon once it pops
-         * this task from its out_deq.
-         *
-         * We never allow any other/more task to queue at out_deq of comm worker
-         * as in this design it will never pop and execute. We maintain an auxiliary
-         * deque outside the OCR/CRT runtine i.e. inside hcupc_spmd and mark all the ocr's out_deq
-         * bounded task to this deque. Inside the termiantion detection phase the comm worker
-         * pops the tasks as necessary.
-         */
-        auto comm_lambda_finish = [=] () {
-            hclib_finish_barrier();
-        };
-        async_comm(comm_lambda_finish);
-    }
+	if(comm_worker) {
+		/*
+		 * The termiantion detection is the job of communication worker.
+		 * This is also treated as an async task and hence we wrap the
+		 * termination detection task in an async_comm such that it
+		 * gets scheduled only at out_deq of communication worker. It
+		 * has while loop, which the comm worker loops upon once it pops
+		 * this task from its out_deq.
+		 *
+		 * We never allow any other/more task to queue at out_deq of comm worker
+		 * as in this design it will never pop and execute. We maintain an auxiliary
+		 * deque outside the OCR/CRT runtine i.e. inside hcupc_spmd and mark all the ocr's out_deq
+		 * bounded task to this deque. Inside the termiantion detection phase the comm worker
+		 * pops the tasks as necessary.
+		 */
+		auto comm_lambda_finish = [=] () {
+			hcpp_finish_barrier();
+		};
+		asyncComm(comm_lambda_finish);
+	}
 
-    /*
-     * this finish will end only if all the local and remote tasks terminates
-     */
-    hclib::end_finish();
-    free_upcxx_event_list();
-    end_finish_spmd_timer();
+	/*
+	 * this finish will end only if all the local and remote tasks terminates
+	 */
+	end_finish();
+	free_upcxx_event_list();
+	end_finish_spmd_timer();
 }
 
 }

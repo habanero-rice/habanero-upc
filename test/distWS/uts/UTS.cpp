@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
 	uts_parseParams(argc, argv);
 
 	/* show parameter settings */
-	if(MYTHREAD == 0) {
+	if(upcxx::global_myrank() == 0) {
 		uts_printParams();
 	}
 
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
 	t1 = uts_wctime();
 
 	hupcpp::finish_spmd([=]() {
-		if(MYTHREAD == 0) {
+		if(upcxx::global_myrank() == 0) {
 			hupcpp::async([=]() {
 				int wid = hupcpp::get_hc_wid();
 				/* initialize root node and push on thread 0 stack */
@@ -258,32 +258,32 @@ void showStats(double walltime) {
 	}
 
 	shared_array<counter_t> tnodes_global;
-	tnodes_global.init(THREADS);
-	tnodes_global[MYTHREAD] = tnodes;
+	tnodes_global.init(upcxx::global_ranks());
+	tnodes_global[upcxx::global_myrank()] = tnodes;
 
 	shared_array<counter_t> tleaves_global;
-	tleaves_global.init(THREADS);
-	tleaves_global[MYTHREAD] = tleaves;
+	tleaves_global.init(upcxx::global_ranks());
+	tleaves_global[upcxx::global_myrank()] = tleaves;
 
 	shared_array<counter_t> mheight_global;
-	mheight_global.init(THREADS);
-	mheight_global[MYTHREAD] = mheight;
+	mheight_global.init(upcxx::global_ranks());
+	mheight_global[upcxx::global_myrank()] = mheight;
 
 	shared_array<counter_t> mdepth_global;
-	mdepth_global.init(THREADS);
-	mdepth_global[MYTHREAD] = mdepth;
+	mdepth_global.init(upcxx::global_ranks());
+	mdepth_global[upcxx::global_myrank()] = mdepth;
 
 	hupcpp::barrier();
 
-	if(MYTHREAD == 0) {
+	if(upcxx::global_myrank() == 0) {
 		counter_t tnodes_t=0, tleaves_t=0, mheight_t = 0, mdepth_t = 0;
-		for(int i=0; i<THREADS; i++) {
+		for(int i=0; i<upcxx::global_ranks(); i++) {
 			tnodes_t += tnodes_global[i];
 			tleaves_t += tleaves_global[i];
 			mdepth_t   = max(mdepth_t, mdepth_global[i]);
 			mheight_t  = max(mheight_t, mheight_global[i]);
 		}
-		uts_showStats(THREADS, chunkSize, elapsedSecs, tnodes_t, tleaves_t, mheight_t);
+		uts_showStats(upcxx::global_ranks(), chunkSize, elapsedSecs, tnodes_t, tleaves_t, mheight_t);
 	}
 }
 

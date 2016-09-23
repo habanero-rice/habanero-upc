@@ -86,19 +86,19 @@ int compare(const void * a, const void * b)
 	else return 1;
 }
 
-void hclib_sort(ELEMENT_T* data, int left, int right) {
+void hcpp_sort(ELEMENT_T* data, int left, int right) {
 	if (right - left + 1 > HC_GRANULARITY) {
 		int index = partition(data, left, right);
 		hupcpp::finish([=]() {
 			if (left < index - 1) {
 				hupcpp::async([=]() {
-                        		hclib_sort(data, left, (index - 1));
+                        		hcpp_sort(data, left, (index - 1));
 				});
 			}
 
 			if (index < right) {
 				hupcpp::async([=]() {
-					hclib_sort(data, index, right);
+					hcpp_sort(data, index, right);
 				});
 			}
 		});
@@ -187,7 +187,7 @@ void compute_splitters(uint64_t key_count,
 		}
 
 #ifdef USE_HABANERO_UPC
-		hclib_sort(candidates, 0, candidate_count - 1);
+		hcpp_sort(candidates, 0, candidate_count - 1);
 #else
 		qsort(candidates, candidate_count, sizeof(ELEMENT_T), compare_element);
 #endif
@@ -246,7 +246,7 @@ void redistribute(uint64_t key_count)
 
 	// local sort
 #ifdef USE_HABANERO_UPC
-	hclib_sort(my_keys, 0, KEYS_PER_THREAD - 1);
+	hcpp_sort(my_keys, 0, KEYS_PER_THREAD - 1);
 #else
 	qsort(my_keys, KEYS_PER_THREAD, sizeof(ELEMENT_T), compare_element);
 #endif
@@ -426,7 +426,7 @@ void sample_sort(uint64_t key_count)
 
 	// local sort
 #ifdef USE_HABANERO_UPC
-	hclib_sort((ELEMENT_T *)sorted[MYTHREAD].get(), 0, sorted_key_counts[MYTHREAD] - 1);
+	hcpp_sort((ELEMENT_T *)sorted[MYTHREAD].get(), 0, sorted_key_counts[MYTHREAD] - 1);
 	hupcpp::barrier();
 #else
 	qsort((ELEMENT_T *)sorted[MYTHREAD].get(),

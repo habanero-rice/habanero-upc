@@ -25,7 +25,7 @@ if [ $# -eq 1 ]; then
 fi
 
 if [ $all -eq 1 ]; then
-  cd $hclib
+  cd $hcpp
   ./clobber.sh
   cd $BASE
 fi

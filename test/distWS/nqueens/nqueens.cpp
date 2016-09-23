@@ -4,8 +4,8 @@
 #include "hcupc_spmd.h"
 
 #define LONG long
-#define SIZE 12
-static int threshold = SIZE-1;
+#define SIZE 18
+static int threshold = 7;
 
 LONG solutions[20] =
 {
@@ -25,8 +25,8 @@ LONG solutions[20] =
 		365596,
 		2279184,
 		14772512,
-		95815104,  /* N=17, mcut=7*/
-		666090624, /* N=18, mcut=7*/
+		95815104,
+		666090624, /* N=18 */
 		4968057848,
 		39029188884
 };
@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
 	double dur = 0;
 	long start = get_usecs();
 	hupcpp::finish_spmd([=]() {
-		if(MYTHREAD == 0) {
+		if(upcxx::global_myrank() == 0) {
 			data_t data;
 			data.depth = 0;
 			nqueens_kernel(data);
@@ -131,13 +131,13 @@ int main(int argc, char* argv[])
 
 	LONG sum=0, result;
 	for(int i=0; i<hupcpp::numWorkers(); i++) sum += local_solutions[i];
-	upcxx::upcxx_reduce<LONG>(&sum, &result, 1, 0, UPCXX_SUM, UPCXX_LONG_LONG);
+	upcxx::reduce<LONG>(&sum, &result, 1, 0, UPCXX_SUM, UPCXX_LONG_LONG);
 
-	if(MYTHREAD == 0) {
+	if(upcxx::global_myrank() == 0) {
 		long end = get_usecs();
 		dur = ((double)(end-start))/1000000;
 		verify_queens(result);
-		printf("NQueens(%d) Time = %fsec\n",SIZE,dur);
+		printf("NQueens(%d)(threshold=%d) Time = %fsec\n",SIZE,threshold,dur);
 	}
 	delete(local_solutions);
 	hupcpp::finalize();

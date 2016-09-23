@@ -1,0 +1,221 @@
+#!/bin/bash -l
+
+#SBATCH --partition=debug
+#SBATCH --nodes=512
+#SBATCH --tasks-per-node=1
+#SBATCH --time=00:01:00
+#SBATCH --job-name=vivekk
+
+export HCUPC_TASK=512
+export JOB_ITER=3
+export HCUPC_MAX_TIMEOUTS=2
+
+#export TIMEOUT_T1WL_NOFAIL=1
+#export TIMEOUT_T1WL_BASE=1
+#export TIMEOUT_T3WL_NOFAIL=1
+#export TIMEOUT_T3WL_BASE=1
+#export TIMEOUT_NQ_NOFAIL=1
+export TIMEOUT_NQ_BASE=16
+
+################################################
+########## NO NEED TO CHANGE BELOW #############
+################################################
+
+export HCUPC_LOGDIR="/global/u2/v/vivekk/edison/feb2016/logs"
+export HCUPC_TIMER="/global/u2/v/vivekk/edison/jan2016/habanero-upc/scripts/timedrun"
+export HCPP_WORKERS=24
+export GASNET_MAX_SEGSIZE='512MB'
+export SRUN_JOB_CMD="srun --nodes=${HCUPC_TASK} --ntasks-per-node=1  --cpus-per-task=24 -m block:block --cpu_bind=cores"
+
+function job_verify {
+	RETVAL=`cat ${LOGFILE}.t1 | grep "caught alarm" | wc -l`
+        if [ ${RETVAL} -eq 0 ]; then
+		cat "${LOGFILE}.t1" | sed '/resources: utime/d' > "${LOGFILE}.t2"
+		cat "${LOGFILE}.t2" | sed '/WARNING: THREADS and MYTHREADS/d' > "${LOGFILE}.t3"
+		echo "TIMESTAMP: "`date` >>  "${LOGFILE}"
+		cat "${LOGFILE}.t3" | sed '/use upcxx::ranks/d' >> "${LOGFILE}"
+	fi
+  	rm "${LOGFILE}.t1" "${LOGFILE}.t2" "${LOGFILE}.t3" 2>/dev/null
+	return "${RETVAL}"
+}
+
+function job_UTS_T3WL_noFail {
+	export LOGFILE="${HCUPC_LOGDIR}/UTST3WL.3096.1024.feb2016.HCUPC.rand.i10c8.s4.nofail.noCycle.places-${HCUPC_TASK}.log"
+	export HCPP_STEAL_N=4
+	export HCPP_CANCEL_CYCLIC_STEALS=1
+	unset HCPP_DIST_WS_BASELINE
+	EXE="./UTS"
+	BENCH_OPTIONS="${T3WL}"
+	echo "COMMAND=> ${HCUPC_TIMER} -t ${TIMEOUT_T3WL_NOFAIL} ${SRUN_JOB_CMD} ./${EXE} ${BENCH_OPTIONS} -c 8 -i 10"
+	${HCUPC_TIMER} -t ${TIMEOUT_T3WL_NOFAIL} ${SRUN_JOB_CMD} ./${EXE} ${BENCH_OPTIONS} -c 8 -i 10 >& "${LOGFILE}.t1"
+	job_verify
+	RETVAL=$?
+	return "${RETVAL}"
+}
+
+function job_UTS_T1WL_noFail {
+	export LOGFILE="${HCUPC_LOGDIR}/UTST1WL.3096.1024.feb2016.HCUPC.rand.i10c8.s4.nofail.noCycle.places-${HCUPC_TASK}.log"
+	export HCPP_STEAL_N=4
+	export HCPP_CANCEL_CYCLIC_STEALS=1
+	unset HCPP_DIST_WS_BASELINE
+	EXE="./UTS"
+	BENCH_OPTIONS="${T1WL}"
+	echo "COMMAND=> ${HCUPC_TIMER} -t ${TIMEOUT_T1WL_NOFAIL} ${SRUN_JOB_CMD} ./${EXE} ${BENCH_OPTIONS} -c 8 -i 10"
+	${HCUPC_TIMER} -t ${TIMEOUT_T1WL_NOFAIL} ${SRUN_JOB_CMD} ./${EXE} ${BENCH_OPTIONS} -c 8 -i 10 >& "${LOGFILE}.t1"
+	job_verify
+	RETVAL=$?
+	return "${RETVAL}"
+}
+
+function job_UTS_T3WL_base {
+	export LOGFILE="${HCUPC_LOGDIR}/UTST3WL.3096.1024.feb2016.HCUPC.rand.i10c8.s4.base.places-${HCUPC_TASK}.log"
+	export HCPP_STEAL_N=4
+	unset HCPP_CANCEL_CYCLIC_STEALS
+	export HCPP_DIST_WS_BASELINE=1
+	EXE="./UTS"
+	BENCH_OPTIONS="${T3WL}"
+	echo "COMMAND=> ${HCUPC_TIMER} -t ${TIMEOUT_T3WL_BASE} ${SRUN_JOB_CMD} ./${EXE} ${BENCH_OPTIONS} -c 8 -i 10"
+	${HCUPC_TIMER} -t ${TIMEOUT_T3WL_BASE} ${SRUN_JOB_CMD} ./${EXE} ${BENCH_OPTIONS} -c 8 -i 10 >& "${LOGFILE}.t1"
+	job_verify
+	RETVAL=$?
+	return "${RETVAL}"
+}
+
+function job_UTS_T1WL_base {
+	export LOGFILE="${HCUPC_LOGDIR}/UTST1WL.3096.1024.feb2016.HCUPC.rand.i10c8.s4.base.places-${HCUPC_TASK}.log"
+	export HCPP_STEAL_N=4
+	unset HCPP_CANCEL_CYCLIC_STEALS
+	export HCPP_DIST_WS_BASELINE=1
+	EXE="./UTS"
+	BENCH_OPTIONS="${T1WL}"
+	echo "COMMAND=> ${HCUPC_TIMER} -t ${TIMEOUT_T1WL_BASE} ${SRUN_JOB_CMD} ./${EXE} ${BENCH_OPTIONS} -c 8 -i 10"
+	${HCUPC_TIMER} -t ${TIMEOUT_T1WL_BASE} ${SRUN_JOB_CMD} ./${EXE} ${BENCH_OPTIONS} -c 8 -i 10 >& "${LOGFILE}.t1"
+	job_verify
+	RETVAL=$?
+	return "${RETVAL}"
+}
+
+function job_nqueens_noFail {
+	export LOGFILE="${HCUPC_LOGDIR}/nqueens.3096.1024.feb2016.HCUPC.rand.nofail.noCycle.places-${HCUPC_TASK}.log"
+	export HCPP_STEAL_N=2
+	export HCPP_CANCEL_CYCLIC_STEALS=1
+	unset HCPP_DIST_WS_BASELINE
+	EXE="./nqueens"
+	echo "COMMAND=> ${HCUPC_TIMER} -t ${TIMEOUT_NQ_NOFAIL} ${SRUN_JOB_CMD} ./${EXE}"
+	${HCUPC_TIMER} -t ${TIMEOUT_NQ_NOFAIL} ${SRUN_JOB_CMD} ./${EXE} >& "${LOGFILE}.t1"
+	job_verify
+	RETVAL=$?
+	return "${RETVAL}"
+}
+
+function job_nqueens_base {
+	export LOGFILE="${HCUPC_LOGDIR}/nqueens.3096.1024.feb2016.HCUPC.rand.base.places-${HCUPC_TASK}.log"
+	export HCPP_STEAL_N=2
+	unset HCPP_CANCEL_CYCLIC_STEALS
+	export HCPP_DIST_WS_BASELINE=1
+	EXE="./nqueens"
+	echo "COMMAND=> ${HCUPC_TIMER} -t ${TIMEOUT_NQ_BASE} ${SRUN_JOB_CMD} ./${EXE}"
+	${HCUPC_TIMER} -t ${TIMEOUT_NQ_BASE} ${SRUN_JOB_CMD} ./${EXE} >& "${LOGFILE}.t1"
+	job_verify
+	RETVAL=$?
+	return "${RETVAL}"
+}
+
+job1_fails=0
+job2_fails=0
+job3_fails=0
+job4_fails=0
+job5_fails=0
+job6_fails=0
+
+START=$(date +%s)
+
+j=0
+while [ $j -lt ${JOB_ITER} ]; do
+	######### UTS T3WL ##############
+	if [ ! -z "${TIMEOUT_T3WL_NOFAIL}" ]; then
+		echo "=====>> job_1..."
+		if [ ${job1_fails} -lt ${HCUPC_MAX_TIMEOUTS} ]; then
+			job_UTS_T3WL_noFail
+			RETVAL=$?
+			if [ ${RETVAL} -ne 0 ]; then
+				job1_fails=`expr ${job1_fails} + 1`
+			fi
+		else
+			echo "@@@@@@@@@@@ CANNOT ALLOW MORE THAN ${HCUPC_MAX_TIMEOUTS} ERRORS in job_1 @@@@@@@@@@@@"
+		fi
+	fi
+
+	if [ ! -z "${TIMEOUT_T3WL_BASE}" ]; then
+		echo "=====>> job_2..."
+		if [ ${job2_fails} -lt ${HCUPC_MAX_TIMEOUTS} ]; then
+			job_UTS_T3WL_base
+			RETVAL=$?
+			if [ ${RETVAL} -ne 0 ]; then
+				job2_fails=`expr ${job2_fails} + 1`
+			fi
+		else
+			echo "@@@@@@@@@@@ CANNOT ALLOW MORE THAN ${HCUPC_MAX_TIMEOUTS} ERRORS in job_2 @@@@@@@@@@@@"
+		fi
+	fi
+	######### UTS T1WL ##############
+	if [ ! -z "${TIMEOUT_T1WL_NOFAIL}" ]; then
+		echo "=====>> job_3..."
+		if [ ${job3_fails} -lt ${HCUPC_MAX_TIMEOUTS} ]; then
+			job_UTS_T1WL_noFail
+			RETVAL=$?
+			if [ ${RETVAL} -ne 0 ]; then
+				job3_fails=`expr ${job3_fails} + 1`
+			fi
+		else
+			echo "@@@@@@@@@@@ CANNOT ALLOW MORE THAN ${HCUPC_MAX_TIMEOUTS} ERRORS in job_3 @@@@@@@@@@@@"
+		fi
+	fi
+
+	if [ ! -z "${TIMEOUT_T1WL_BASE}" ]; then
+		echo "=====>> job_4..."
+		if [ ${job4_fails} -lt ${HCUPC_MAX_TIMEOUTS} ]; then
+			job_UTS_T1WL_base
+			RETVAL=$?
+			if [ ${RETVAL} -ne 0 ]; then
+				job4_fails=`expr ${job4_fails} + 1`
+			fi
+		else
+			echo "@@@@@@@@@@@ CANNOT ALLOW MORE THAN ${HCUPC_MAX_TIMEOUTS} ERRORS in job_4 @@@@@@@@@@@@"
+		fi
+	fi
+
+	######### NQueens ##############
+	if [ ! -z "${TIMEOUT_NQ_NOFAIL}" ]; then
+		echo "=====>> job_5..."
+		if [ ${job5_fails} -lt ${HCUPC_MAX_TIMEOUTS} ]; then
+			job_nqueens_noFail
+			RETVAL=$?
+			if [ ${RETVAL} -ne 0 ]; then
+				job5_fails=`expr ${job5_fails} + 1`
+			fi
+		else
+			echo "@@@@@@@@@@@ CANNOT ALLOW MORE THAN ${HCUPC_MAX_TIMEOUTS} ERRORS in job_5 @@@@@@@@@@@@"
+		fi
+	fi
+
+	if [ ! -z "${TIMEOUT_NQ_BASE}" ]; then
+		echo "=====>> job_6..."
+		if [ ${job6_fails} -lt ${HCUPC_MAX_TIMEOUTS} ]; then
+			job_nqueens_base
+			RETVAL=$?
+			if [ ${RETVAL} -ne 0 ]; then
+				job6_fails=`expr ${job6_fails} + 1`
+			fi
+		else
+			echo "@@@@@@@@@@@ CANNOT ALLOW MORE THAN ${HCUPC_MAX_TIMEOUTS} ERRORS in job_6 @@@@@@@@@@@@"
+		fi
+	fi
+
+	j=`expr ${j} + 1`
+done    
+
+END=$(date +%s)
+echo "TOTAL EXECUTION TIME FOR JOB: (min:sec)"
+echo $((END-START)) | awk '{print int($1/60)":"int($1%60)}'
+
